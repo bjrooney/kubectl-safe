@@ -12,10 +12,10 @@ DIST_DIR="dist"
 # An array of the binary names we need to process.
 # This makes it easy to add more platforms in the future.
 BINARIES=(
-  "kubectl-safe-linux-amd64"
-  "kubectl-safe-darwin-arm64"
-  "kubectl-safe-darwin-amd64"
-  "kubectl-safe-windows-amd64.exe"
+  "kubectl-safe-linux-amd64.tar.gz"
+  "kubectl-safe-darwin-arm64.tar.gz"
+  "kubectl-safe-darwin-amd64.tar.gz"
+  "kubectl-safe-windows-amd64.zip"
 )
 
 echo "--- Generating SHA256 Checksums for Krew Manifest ---"
