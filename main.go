@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.comcom/fatih/color"
+	"github.com/fatih/color"
 )
 
 // Define the list of dangerous commands.
@@ -24,8 +24,6 @@ var dangerousCommands = map[string]bool{
 
 func main() {
 	// os.Args contains all command-line arguments.
-	// os.Args[0] is the program name ("kubectl-safe").
-	// os.Args[1] should be the dangerous command ("apply", "delete", etc.).
 	if len(os.Args) < 2 {
 		color.Red("Error: 'safe' plugin requires a command to run.")
 		fmt.Println("Example: kubectl safe apply -f my-app.yaml")
@@ -33,16 +31,12 @@ func main() {
 	}
 
 	dangerousCmd := os.Args[1]
-	// The rest of the arguments are passed to kubectl.
 	kubectlArgs := os.Args[2:]
 
-	// Check if the command is in our list.
 	if !dangerousCommands[dangerousCmd] {
 		color.Red("Error: '%s' is not a supported dangerous command.", dangerousCmd)
 		os.Exit(1)
 	}
-
-	// --- The same logic as our script, now in Go ---
 
 	// 1. Parse arguments to find context and namespace.
 	var foundContext, foundNamespace string
@@ -50,7 +44,6 @@ func main() {
 
 	for i := 0; i < len(kubectlArgs); i++ {
 		arg := kubectlArgs[i]
-		// Handle --flag=value format
 		if strings.HasPrefix(arg, "--context=") {
 			contextIsSet = true
 			foundContext = strings.SplitN(arg, "=", 2)[1]
@@ -58,12 +51,11 @@ func main() {
 			namespaceIsSet = true
 			foundNamespace = strings.SplitN(arg, "=", 2)[1]
 		} else if arg == "--context" || arg == "-n" || arg == "--namespace" {
-			// Handle --flag value format, making sure we don't go out of bounds.
 			if (i + 1) < len(kubectlArgs) {
 				if arg == "--context" {
 					contextIsSet = true
 					foundContext = kubectlArgs[i+1]
-				} else { // -n or --namespace
+				} else {
 					namespaceIsSet = true
 					foundNamespace = kubectlArgs[i+1]
 				}
@@ -91,11 +83,13 @@ func main() {
 	cyan := color.New(color.FgCyan)
 
 	yellow.Println("You are about to run the following command:")
-	// Reconstruct the full command string for display.
 	fullCommandStr := fmt.Sprintf("kubectl %s %s", dangerousCmd, strings.Join(kubectlArgs, " "))
 	cyan.Printf("  %s\n", fullCommandStr)
+	// UPDATED SECTION: Now displays context AND namespace
 	fmt.Printf("on context ")
-	cyan.Printf("%s\n", foundContext)
+	cyan.Printf("%s", foundContext)
+	fmt.Printf(" in namespace ")
+	cyan.Printf("%s\n", foundNamespace)
 	yellow.Print("Do you want to continue? (y/n): ")
 
 	if !askForConfirmation() {
@@ -105,8 +99,18 @@ func main() {
 
 	// 4. Special production alert.
 	if strings.Contains(strings.ToLower(foundContext), "prod") {
-		color.New(color.FgRed).Add(color.Bold).Println("#################### PRODUCTION ALERT ####################")
-		fmt.Println("This is a PRODUCTION context. Please type the context name to confirm:")
+		redBold := color.New(color.FgRed).Add(color.Bold)
+
+		redBold.Println("#################### PRODUCTION ALERT ####################")
+		fmt.Println("This is a PRODUCTION context. Please review the details carefully.")
+		// UPDATED SECTION: Also shows command, context, and namespace in prod alert
+		fmt.Printf("  Command:   ")
+		cyan.Printf("%s %s\n", dangerousCmd, strings.Join(kubectlArgs, " "))
+		fmt.Printf("  Context:   ")
+		cyan.Printf("%s\n", foundContext)
+		fmt.Printf("  Namespace: ")
+		cyan.Printf("%s\n\n", foundNamespace)
+		fmt.Println("To proceed, please type the full context name to confirm:")
 		cyan.Printf("%s\n> ", foundContext)
 
 		reader := bufio.NewReader(os.Stdin)
@@ -120,18 +124,14 @@ func main() {
 
 	// 5. If all checks pass, execute the real kubectl command.
 	fmt.Println("--- All checks passed. Executing command. ---")
-	// Prepend the dangerous command back to the front of the arguments list.
 	finalArgs := append([]string{dangerousCmd}, kubectlArgs...)
 	cmd := exec.Command("kubectl", finalArgs...)
 
-	// Connect the command's output/error to our terminal so we can see it.
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	// Run the command and exit with its status code.
 	if err := cmd.Run(); err != nil {
-		// This handles cases where kubectl itself returns an error.
 		os.Exit(1)
 	}
 }
