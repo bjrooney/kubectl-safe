@@ -1,23 +1,26 @@
 #!/bin/bash
-# A simple script to cross-compile the plugin for all target platforms.
+# Updated to support Apple Silicon (arm64) Macs.
 
-# Exit immediately if a command exits with a non-zero status.
 set -e
 
-# Create a directory to store the binaries, if it doesn't exist.
+DIST_DIR="dist"
 echo "Creating distribution directory..."
-mkdir -p dist
+mkdir -p "$DIST_DIR"
 
-# Build for Linux
+# Build for Linux (Intel/AMD)
 echo "Building for Linux (amd64)..."
-GOOS=linux GOARCH=amd64 go build -o dist/kubectl-safe-linux main.go
+GOOS=linux GOARCH=amd64 go build -o "$DIST_DIR/kubectl-safe-linux-amd64" main.go
 
-# Build for macOS
+# Build for macOS (Intel)
 echo "Building for macOS (amd64)..."
-GOOS=darwin GOARCH=amd64 go build -o dist/kubectl-safe-darwin main.go
+GOOS=darwin GOARCH=amd64 go build -o "$DIST_DIR/kubectl-safe-darwin-amd64" main.go
 
-# Build for Windows
+# NEW: Build for macOS (Apple Silicon)
+echo "Building for macOS (arm64)..."
+GOOS=darwin GOARCH=arm64 go build -o "$DIST_DIR/kubectl-safe-darwin-arm64" main.go
+
+# Build for Windows (Intel/AMD)
 echo "Building for Windows (amd64)..."
-GOOS=windows GOARCH=amd64 go build -o dist/kubectl-safe-windows.exe main.go
+GOOS=windows GOARCH=amd64 go build -o "$DIST_DIR/kubectl-safe-windows-amd64.exe" main.go
 
-echo "Build complete! Binaries are in the 'dist/' directory."
+echo "Build complete! Binaries are in the '$DIST_DIR/' directory."
