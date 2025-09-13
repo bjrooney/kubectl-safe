@@ -1,0 +1,29 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Run tests
+      run: make test
+    
+    - name: Build
+      run: make build
+    
+    - name: Test binary
+      run: |
+        ./bin/kubectl-safe --help || true
+        ./bin/kubectl-safe get pods || true

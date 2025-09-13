@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Run tests
+      run: make test
+    
+    - name: Build for multiple platforms
+      run: |
+        # Linux AMD64
+        GOOS=linux GOARCH=amd64 go build -o bin/kubectl-safe-linux-amd64 ./cmd/kubectl-safe
+        tar -czf kubectl-safe-linux-amd64.tar.gz -C bin kubectl-safe-linux-amd64
+        
+        # Linux ARM64
+        GOOS=linux GOARCH=arm64 go build -o bin/kubectl-safe-linux-arm64 ./cmd/kubectl-safe
+        tar -czf kubectl-safe-linux-arm64.tar.gz -C bin kubectl-safe-linux-arm64
+        
+        # Darwin AMD64
+        GOOS=darwin GOARCH=amd64 go build -o bin/kubectl-safe-darwin-amd64 ./cmd/kubectl-safe
+        tar -czf kubectl-safe-darwin-amd64.tar.gz -C bin kubectl-safe-darwin-amd64
+        
+        # Darwin ARM64
+        GOOS=darwin GOARCH=arm64 go build -o bin/kubectl-safe-darwin-arm64 ./cmd/kubectl-safe
+        tar -czf kubectl-safe-darwin-arm64.tar.gz -C bin kubectl-safe-darwin-arm64
+        
+        # Windows AMD64
+        GOOS=windows GOARCH=amd64 go build -o bin/kubectl-safe-windows-amd64.exe ./cmd/kubectl-safe
+        tar -czf kubectl-safe-windows-amd64.tar.gz -C bin kubectl-safe-windows-amd64.exe
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          kubectl-safe-linux-amd64.tar.gz
+          kubectl-safe-linux-arm64.tar.gz
+          kubectl-safe-darwin-amd64.tar.gz
+          kubectl-safe-darwin-arm64.tar.gz
+          kubectl-safe-windows-amd64.tar.gz
+          safe.yaml
+        generate_release_notes: true

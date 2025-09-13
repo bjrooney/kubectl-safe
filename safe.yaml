@@ -1,0 +1,58 @@
+apiVersion: krew.googlecode.com/v1alpha2
+kind: Plugin
+metadata:
+  name: safe
+spec:
+  version: v0.1.0
+  homepage: https://github.com/bjrooney/kubectl-safe
+  shortDescription: Interactive safety net for dangerous kubectl commands
+  description: |
+    kubectl-safe provides an interactive safety net for dangerous kubectl commands.
+    
+    It acts as a wrapper around destructive kubectl operations to prevent common
+    mistakes by:
+    - Requiring explicit --context and --namespace flags for dangerous commands
+    - Showing interactive confirmation prompts with target details
+    - Acting as a final checkpoint before potentially destructive operations
+    
+    Dangerous commands include: delete, apply, create, replace, patch, edit, 
+    scale, rollout, drain, cordon, uncordon, and taint.
+    
+    For safe commands like get, describe, logs, etc., this plugin acts as a
+    transparent pass-through to kubectl without any safety checks.
+  platforms:
+  - selector:
+      matchLabels:
+        os: linux
+        arch: amd64
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-linux-amd64.tar.gz
+    sha256: ""
+    bin: kubectl-safe
+  - selector:
+      matchLabels:
+        os: linux
+        arch: arm64
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-linux-arm64.tar.gz
+    sha256: ""
+    bin: kubectl-safe
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: amd64
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-darwin-amd64.tar.gz
+    sha256: ""
+    bin: kubectl-safe
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: arm64
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-darwin-arm64.tar.gz
+    sha256: ""
+    bin: kubectl-safe
+  - selector:
+      matchLabels:
+        os: windows
+        arch: amd64
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-windows-amd64.tar.gz
+    sha256: ""
+    bin: kubectl-safe.exe
