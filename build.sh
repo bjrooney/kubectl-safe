@@ -15,7 +15,7 @@ GOOS=linux GOARCH=amd64 go build -o "$DIST_DIR/kubectl-safe-linux-amd64" main.go
 echo "Building for macOS (amd64)..."
 GOOS=darwin GOARCH=amd64 go build -o "$DIST_DIR/kubectl-safe-darwin-amd64" main.go
 
-# NEW: Build for macOS (Apple Silicon)
+# Build for macOS (Apple Silicon)
 echo "Building for macOS (arm64)..."
 GOOS=darwin GOARCH=arm64 go build -o "$DIST_DIR/kubectl-safe-darwin-arm64" main.go
 
