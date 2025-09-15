@@ -1,51 +1,126 @@
+# Release Workflow for kubectl-safe
+#
+# This workflow automatically builds multi-platform binaries and creates GitHub releases
+# when a new version tag is pushed. It's designed to integrate seamlessly with the
+# Krew plugin index for kubectl plugin distribution.
+#
+# Trigger:
+#   - Push of version tags (v* pattern, e.g., v1.2.3)
+#
+# Workflow process:
+#   1. Run comprehensive tests to ensure release quality
+#   2. Build binaries for all supported platforms (Linux, macOS, Windows)
+#   3. Package binaries into compressed archives with proper naming
+#   4. Generate SHA256 checksums for Krew manifest validation
+#   5. Create GitHub release with all artifacts
+#   6. Include the Krew manifest (safe.yaml) in the release
+#
+# Release artifacts:
+#   - kubectl-safe-linux-amd64.tar.gz   (Linux Intel/AMD 64-bit)
+#   - kubectl-safe-linux-arm64.tar.gz   (Linux ARM 64-bit)
+#   - kubectl-safe-darwin-amd64.tar.gz  (macOS Intel)
+#   - kubectl-safe-darwin-arm64.tar.gz  (macOS Apple Silicon)
+#   - kubectl-safe-windows-amd64.tar.gz (Windows 64-bit)
+#   - safe.yaml                          (Krew plugin manifest)
+#
+# Post-release steps (manual):
+#   1. Update checksums in safe.yaml using the generated artifacts
+#   2. Submit PR to kubernetes-sigs/krew-index with updated manifest
+#   3. Test installation: kubectl krew install safe
+
 name: Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # Trigger on version tags like v1.0.0, v1.2.3-beta, etc.
 
 jobs:
   release:
+    name: Build and Release
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # Required to create releases and upload assets
+      
     steps:
-    - uses: actions/checkout@v5
+    # Check out the repository code including full history for proper versioning
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0  # Fetch full history for better release notes
     
+    # Set up Go environment for building
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
         go-version: '1.25'
     
+    # Run tests to ensure we're releasing working code
     - name: Run tests
       run: make test
     
-    - name: Build for multiple platforms
+    # Extract version from git tag for use in build metadata
+    - name: Get version
+      id: version
+      run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    
+    # Build binaries for all supported platforms
+    # Note: Building manually here instead of using build.sh to maintain
+    # compatibility with GitHub Actions and ensure proper naming
+    - name: Build multi-platform binaries
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
       run: |
-        # Linux AMD64
-        GOOS=linux GOARCH=amd64 go build -o bin/kubectl-safe-linux-amd64 ./cmd/kubectl-safe
+        # Create bin directory for organizing builds
+        mkdir -p bin
+        
+        # Build for Linux AMD64 (most common server/container architecture)
+        echo "Building for Linux AMD64..."
+        GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=${VERSION}" -o bin/kubectl-safe-linux-amd64 ./cmd/kubectl-safe
         tar -czf kubectl-safe-linux-amd64.tar.gz -C bin kubectl-safe-linux-amd64
         
-        # Linux ARM64
-        GOOS=linux GOARCH=arm64 go build -o bin/kubectl-safe-linux-arm64 ./cmd/kubectl-safe
+        # Build for Linux ARM64 (increasingly common, Raspberry Pi, some cloud instances)
+        echo "Building for Linux ARM64..."
+        GOOS=linux GOARCH=arm64 go build -ldflags="-X main.version=${VERSION}" -o bin/kubectl-safe-linux-arm64 ./cmd/kubectl-safe
         tar -czf kubectl-safe-linux-arm64.tar.gz -C bin kubectl-safe-linux-arm64
         
-        # Darwin AMD64
-        GOOS=darwin GOARCH=amd64 go build -o bin/kubectl-safe-darwin-amd64 ./cmd/kubectl-safe
+        # Build for macOS Intel (traditional Mac architecture)
+        echo "Building for macOS Intel..."
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-X main.version=${VERSION}" -o bin/kubectl-safe-darwin-amd64 ./cmd/kubectl-safe
         tar -czf kubectl-safe-darwin-amd64.tar.gz -C bin kubectl-safe-darwin-amd64
         
-        # Darwin ARM64
-        GOOS=darwin GOARCH=arm64 go build -o bin/kubectl-safe-darwin-arm64 ./cmd/kubectl-safe
+        # Build for macOS Apple Silicon (M1/M2/M3+ Macs)
+        echo "Building for macOS Apple Silicon..."
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-X main.version=${VERSION}" -o bin/kubectl-safe-darwin-arm64 ./cmd/kubectl-safe
         tar -czf kubectl-safe-darwin-arm64.tar.gz -C bin kubectl-safe-darwin-arm64
         
-        # Windows AMD64
-        GOOS=windows GOARCH=amd64 go build -o bin/kubectl-safe-windows-amd64.exe ./cmd/kubectl-safe
+        # Build for Windows (use .exe extension as required)
+        echo "Building for Windows..."
+        GOOS=windows GOARCH=amd64 go build -ldflags="-X main.version=${VERSION}" -o bin/kubectl-safe-windows-amd64.exe ./cmd/kubectl-safe
         tar -czf kubectl-safe-windows-amd64.tar.gz -C bin kubectl-safe-windows-amd64.exe
     
-    - name: Create Release
+    # Generate SHA256 checksums for each binary archive
+    # These are required for the Krew manifest and provide security verification
+    - name: Generate checksums
+      run: |
+        echo "Generating SHA256 checksums for release artifacts..."
+        sha256sum *.tar.gz > checksums.txt
+        echo ""
+        echo "📋 Checksums for Krew manifest (update safe.yaml):"
+        echo "================================================="
+        for file in *.tar.gz; do
+          checksum=$(sha256sum "$file" | awk '{print $1}')
+          echo "# $file"
+          echo "sha256: \"$checksum\""
+          echo ""
+        done | tee krew-checksums.txt
+    
+    # Create GitHub release with all build artifacts
+    # The release includes binaries, checksums, and the Krew manifest
+    - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
+        # Include all platform binaries and metadata files
         files: |
           kubectl-safe-linux-amd64.tar.gz
           kubectl-safe-linux-arm64.tar.gz
@@ -53,4 +128,45 @@ jobs:
           kubectl-safe-darwin-arm64.tar.gz
           kubectl-safe-windows-amd64.tar.gz
           safe.yaml
+          checksums.txt
+          krew-checksums.txt
+        # Auto-generate release notes from commits since last tag
         generate_release_notes: true
+        # Add detailed release information
+        body: |
+          ## 🚀 kubectl-safe ${{ steps.version.outputs.version }}
+          
+          Interactive safety net for dangerous kubectl commands.
+          
+          ### 📥 Installation
+          
+          #### Via Krew (Recommended)
+          ```bash
+          kubectl krew install safe
+          ```
+          
+          #### Manual Installation
+          1. Download the appropriate binary for your platform from the assets below
+          2. Extract the archive: `tar -xzf kubectl-safe-<platform>-<arch>.tar.gz`
+          3. Move the binary to your PATH: `mv kubectl-safe-<platform>-<arch> /usr/local/bin/kubectl-safe`
+          4. Make it executable: `chmod +x /usr/local/bin/kubectl-safe`
+          
+          ### 🔐 Checksums
+          SHA256 checksums are available in `checksums.txt`. Verify your download:
+          ```bash
+          sha256sum kubectl-safe-<platform>-<arch>.tar.gz
+          ```
+          
+          ### 📦 For Krew Index Maintainers
+          - Updated checksums are available in `krew-checksums.txt`
+          - Copy the sha256 values into the Krew manifest
+          - The `safe.yaml` manifest is included in this release
+          
+          ### 🧪 Testing This Release
+          ```bash
+          # Test basic functionality
+          kubectl safe --help
+          
+          # Test safety features (should require --context and --namespace)
+          kubectl safe delete pod test
+          ```

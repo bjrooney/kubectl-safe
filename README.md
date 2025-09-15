@@ -106,15 +106,113 @@ Are you sure you want to continue? (yes/no):
 
 ## Development
 
+### Building from Source
+
 ```bash
+# Clone the repository
+git clone https://github.com/bjrooney/kubectl-safe.git
+cd kubectl-safe
+
 # Run tests
 make test
 
-# Build binary
+# Build binary for current platform
 make build
 
 # Install locally for development  
 make dev-install
+```
+
+### Multi-Platform Builds
+
+For creating release artifacts for all supported platforms:
+
+```bash
+# Build for all platforms (Linux, macOS, Windows)
+./build.sh
+
+# Generate checksums for Krew manifest
+./checksum.sh
+
+# Update Krew manifest with new version and checksums
+./update-manifest.sh v1.2.3
+```
+
+### Testing
+
+```bash
+# Run all unit tests
+make test
+
+# Test basic functionality
+./bin/kubectl-safe --help
+
+# Test safety features (should require flags)
+./bin/kubectl-safe delete pod test
+
+# Test with required flags (would execute if kubectl configured)
+./bin/kubectl-safe delete pod test --context=minikube --namespace=default
+```
+
+### Release Process
+
+1. **Prepare Release**
+   ```bash
+   # Ensure all tests pass
+   make test
+   
+   # Build release artifacts
+   ./build.sh
+   
+   # Update version in safe.yaml and generate checksums
+   ./update-manifest.sh v1.2.3
+   ```
+
+2. **Create GitHub Release**
+   ```bash
+   # Tag the release
+   git tag v1.2.3
+   git push origin v1.2.3
+   
+   # GitHub Actions will automatically:
+   # - Build multi-platform binaries
+   # - Generate checksums  
+   # - Create GitHub release
+   # - Upload all artifacts
+   ```
+
+3. **Submit to Krew Index**
+   ```bash
+   # Clone the Krew index
+   git clone https://github.com/kubernetes-sigs/krew-index.git
+   
+   # Copy updated manifest
+   cp safe.yaml krew-index/plugins/safe.yaml
+   
+   # Test the manifest
+   kubectl krew install --manifest=krew-index/plugins/safe.yaml
+   
+   # Submit PR to krew-index repository
+   ```
+
+### Project Structure
+
+```
+kubectl-safe/
+├── cmd/kubectl-safe/     # Main application entry point
+│   └── main.go
+├── pkg/safe/            # Core plugin logic
+│   ├── safe.go          # Main implementation
+│   └── safe_test.go     # Unit tests
+├── .github/workflows/   # CI/CD automation
+│   ├── build.yml        # Build and test workflow
+│   └── release.yml      # Release automation
+├── build.sh            # Multi-platform build script
+├── checksum.sh         # Checksum generation for Krew
+├── update-manifest.sh  # Krew manifest updater
+├── safe.yaml           # Krew plugin manifest
+├── Makefile           # Build automation
+└── README.md          # This file
 ```
 
 ## Contributing

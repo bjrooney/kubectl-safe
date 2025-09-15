@@ -1,58 +1,112 @@
+# Krew Plugin Manifest for kubectl-safe
+#
+# This manifest defines the kubectl-safe plugin for the Krew plugin manager.
+# It specifies how to download, install, and use the plugin across different platforms.
+#
+# For more information about Krew manifests, see:
+# https://krew.sigs.k8s.io/docs/developer-guide/plugin-manifest/
+#
+# To install this plugin locally for testing:
+#   kubectl krew install --manifest=safe.yaml
+#
+# To submit to the Krew index:
+#   1. Update the version and checksums below
+#   2. Submit a PR to https://github.com/kubernetes-sigs/krew-index
+
 apiVersion: krew.googlecode.com/v1alpha2
 kind: Plugin
 metadata:
   name: safe
 spec:
+  # Version of the plugin - should match the git tag (without 'v' prefix)
   version: v0.1.0
+  
+  # Plugin homepage and source repository
   homepage: https://github.com/bjrooney/kubectl-safe
+  
+  # Short description for plugin listing (keep under 50 characters)
   shortDescription: Interactive safety net for dangerous kubectl commands
+  
+  # Detailed description of what the plugin does and why it's useful
+  # This appears in plugin details and search results
   description: |
     kubectl-safe provides an interactive safety net for dangerous kubectl commands.
     
     It acts as a wrapper around destructive kubectl operations to prevent common
     mistakes by:
+    
+    🛡️ Safety Features:
     - Requiring explicit --context and --namespace flags for dangerous commands
     - Showing interactive confirmation prompts with target details
     - Acting as a final checkpoint before potentially destructive operations
+    - Transparent pass-through for safe commands (get, describe, logs, etc.)
     
-    Dangerous commands include: delete, apply, create, replace, patch, edit, 
-    scale, rollout, drain, cordon, uncordon, and taint.
+    ⚠️ Dangerous commands that trigger safety checks:
+    delete, apply, create, replace, patch, edit, scale, rollout, drain, 
+    cordon, uncordon, and taint.
     
-    For safe commands like get, describe, logs, etc., this plugin acts as a
-    transparent pass-through to kubectl without any safety checks.
+    🎯 Perfect for:
+    - Preventing accidental deletions in production
+    - Enforcing explicit targeting of clusters and namespaces
+    - Adding a confirmation step before destructive operations
+    - Teams working with multiple Kubernetes clusters
+    
+    💡 Usage Examples:
+    # This will prompt for confirmation:
+    kubectl safe delete pod mypod --context=prod --namespace=default
+    
+    # This will fail - missing required flags:
+    kubectl safe delete pod mypod
+    
+    # Safe commands pass through without checks:
+    kubectl safe get pods
+    kubectl safe describe deployment myapp
+  
+  # Platform-specific download configurations
+  # Each platform specifies where to download the binary and how to verify it
   platforms:
+  
+  # Linux AMD64 (Intel/AMD 64-bit) - most common server architecture
   - selector:
       matchLabels:
         os: linux
         arch: amd64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-linux-amd64.tar.gz
-    sha256: ""
-    bin: kubectl-safe
+    sha256: ""  # TODO: Update with actual checksum from release
+    bin: kubectl-safe-linux-amd64  # Binary name inside the archive
+    
+  # Linux ARM64 - Raspberry Pi, some cloud instances, Apple Silicon containers
   - selector:
       matchLabels:
         os: linux
         arch: arm64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-linux-arm64.tar.gz
-    sha256: ""
-    bin: kubectl-safe
+    sha256: ""  # TODO: Update with actual checksum from release
+    bin: kubectl-safe-linux-arm64
+    
+  # macOS Intel (traditional Mac architecture)
   - selector:
       matchLabels:
         os: darwin
         arch: amd64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-darwin-amd64.tar.gz
-    sha256: ""
-    bin: kubectl-safe
+    sha256: ""  # TODO: Update with actual checksum from release
+    bin: kubectl-safe-darwin-amd64
+    
+  # macOS Apple Silicon (M1/M2/M3+ Macs)
   - selector:
       matchLabels:
         os: darwin
         arch: arm64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-darwin-arm64.tar.gz
-    sha256: ""
-    bin: kubectl-safe
+    sha256: ""  # TODO: Update with actual checksum from release
+    bin: kubectl-safe-darwin-arm64
+    
+  # Windows 64-bit
   - selector:
       matchLabels:
         os: windows
         arch: amd64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-windows-amd64.tar.gz
-    sha256: ""
-    bin: kubectl-safe.exe
+    sha256: ""  # TODO: Update with actual checksum from release
+    bin: kubectl-safe-windows-amd64.exe

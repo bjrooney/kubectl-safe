@@ -1,3 +1,16 @@
+# Build and Test Workflow for kubectl-safe
+#
+# This workflow runs on every push to main and on pull requests to ensure
+# code quality and functionality. It performs comprehensive testing across
+# the supported Go version and validates that the binary works correctly.
+#
+# Workflow triggers:
+#   - Push to main branch
+#   - Pull requests targeting main branch
+#
+# Jobs:
+#   - test: Runs unit tests, builds the binary, and performs basic functionality tests
+
 name: Build and Test
 
 on:
@@ -8,22 +21,45 @@ on:
 
 jobs:
   test:
+    name: Test and Build
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v5
     
+    steps:
+    # Check out the repository code
+    - name: Checkout code
+      uses: actions/checkout@v5
+    
+    # Set up Go environment with the specified version
+    # Note: Using Go 1.25 to stay current with latest features and security updates
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
         go-version: '1.25'
     
-    - name: Run tests
+    # Run all unit tests with verbose output for detailed feedback
+    - name: Run unit tests
       run: make test
     
-    - name: Build
+    # Build the binary to ensure compilation succeeds
+    - name: Build binary
       run: make build
     
-    - name: Test binary
+    # Test basic binary functionality to catch runtime issues
+    # These tests verify the binary runs and responds to basic commands
+    - name: Test binary functionality
       run: |
+        # Test help output (should succeed)
         ./bin/kubectl-safe --help || true
+        
+        # Test with safe command (should pass through but fail due to no kubectl cluster)
         ./bin/kubectl-safe get pods || true
+        
+        # Test with dangerous command without flags (should fail with our error message)
+        output=$(./bin/kubectl-safe delete pod test 2>&1 || true)
+        if [[ "$output" == *"dangerous command requires explicit"* ]]; then
+          echo "✅ Dangerous command validation working correctly"
+        else
+          echo "❌ Dangerous command validation not working"
+          echo "Output: $output"
+          exit 1
+        fi
