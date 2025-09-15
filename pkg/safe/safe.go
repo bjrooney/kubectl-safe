@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// Version will be set at build time via ldflags
+var Version = "dev"
+
 // DangerousCommands are kubectl commands that can cause data loss or service disruption
 var DangerousCommands = []string{
 	"delete",
@@ -31,6 +34,12 @@ func Execute() error {
 
 	if len(args) == 0 {
 		return showUsage()
+	}
+
+	// Handle version flag
+	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v") {
+		fmt.Printf("kubectl-safe version %s\n", Version)
+		return nil
 	}
 
 	// Check if this is a dangerous command
@@ -162,9 +171,11 @@ func executeKubectl(args []string) error {
 // showUsage displays help information
 func showUsage() error {
 	fmt.Printf(`kubectl-safe: Interactive safety net for dangerous kubectl commands
+Version: %s
 
 Usage:
   kubectl safe <kubectl-command> [flags]
+  kubectl safe --version
 
 This plugin acts as a safety wrapper around kubectl commands. For dangerous operations,
 it will:
@@ -181,6 +192,6 @@ Dangerous commands that trigger safety checks:
 
 For safe commands, this plugin acts as a transparent pass-through to kubectl.
 
-`, strings.Join(DangerousCommands, ", "))
+`, Version, strings.Join(DangerousCommands, ", "))
 	return nil
 }

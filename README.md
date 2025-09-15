@@ -113,9 +113,19 @@ make test
 # Build binary
 make build
 
+# Check version
+make version
+
+# Build release packages
+./auto-build.sh
+
 # Install locally for development  
 make dev-install
 ```
+
+### Versioning and Releases
+
+See [VERSIONING.md](VERSIONING.md) for details on the automated versioning and release process.
 
 ## Contributing
 

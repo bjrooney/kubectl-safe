@@ -142,3 +142,41 @@ func TestExtractFlagValue(t *testing.T) {
 		})
 	}
 }
+
+func TestVersionFlag(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want bool // true if should show version
+	}{
+		{
+			name: "version long flag",
+			args: []string{"--version"},
+			want: true,
+		},
+		{
+			name: "version short flag",
+			args: []string{"-v"},
+			want: true,
+		},
+		{
+			name: "not version flag",
+			args: []string{"get", "pods"},
+			want: false,
+		},
+		{
+			name: "multiple args",
+			args: []string{"--version", "extra"},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isVersion := len(tt.args) == 1 && (tt.args[0] == "--version" || tt.args[0] == "-v")
+			if isVersion != tt.want {
+				t.Errorf("version flag check for %v = %v, want %v", tt.args, isVersion, tt.want)
+			}
+		})
+	}
+}
