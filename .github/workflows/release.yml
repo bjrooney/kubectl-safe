@@ -43,6 +43,13 @@ jobs:
         GOOS=windows GOARCH=amd64 go build -o bin/kubectl-safe-windows-amd64.exe ./cmd/kubectl-safe
         tar -czf kubectl-safe-windows-amd64.tar.gz -C bin kubectl-safe-windows-amd64.exe
     
+    - name: Generate checksums
+      run: |
+        # Generate checksums for release files
+        sha256sum *.tar.gz > checksums.txt
+        echo "Generated checksums:"
+        cat checksums.txt
+    
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
@@ -53,4 +60,13 @@ jobs:
           kubectl-safe-darwin-arm64.tar.gz
           kubectl-safe-windows-amd64.tar.gz
           safe.yaml
+          checksums.txt
         generate_release_notes: true
+    
+    - name: Trigger Krew Index Update
+      uses: peter-evans/repository-dispatch@v3
+      with:
+        token: ${{ secrets.KREW_INDEX_TOKEN }}
+        repository: bjrooney/kubectl-safe
+        event-type: krew-publish
+        client-payload: '{"version": "${{ github.ref_name }}"}'
