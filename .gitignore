@@ -33,3 +33,9 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+# Ignore the distribution directory where binaries are built.
+dist/
+
+# Ignore any other local build artifacts
+kubectl-safe
+kubectl-safe-*
