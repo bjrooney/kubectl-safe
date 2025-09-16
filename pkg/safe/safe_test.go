@@ -204,6 +204,7 @@ func TestVersionFlag(t *testing.T) {
 				t.Errorf("version flag check for %v = %v, want %v", tt.args, isVersion, tt.want)
 			}
 		})
+
 	}
 }
 	
