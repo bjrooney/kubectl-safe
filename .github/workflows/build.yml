@@ -17,6 +17,12 @@ jobs:
       with:
         go-version: '1.25'
     
+    - name: Get version
+      run: |
+        VERSION=$(cat VERSION 2>/dev/null || echo "dev")
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Building version: $VERSION"
+    
     - name: Run tests
       run: make test
     
@@ -25,5 +31,5 @@ jobs:
     
     - name: Test binary
       run: |
+        ./bin/kubectl-safe --version
         ./bin/kubectl-safe --help || true
-        ./bin/kubectl-safe get pods || true
