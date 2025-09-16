@@ -204,6 +204,8 @@ func TestVersionFlag(t *testing.T) {
 				t.Errorf("version flag check for %v = %v, want %v", tt.args, isVersion, tt.want)
 			}
 		})
+	}
+}
 	
 func TestGetKubeconfigContexts(t *testing.T) {
 	// This test validates the function works but the exact output depends on the test environment
