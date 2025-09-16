@@ -9,6 +9,7 @@ kubectl-safe acts as a simple, interactive wrapper around destructive kubectl co
 ## Features
 
 - **Enforces Best Practices**: Requires the mandatory use of `--context` and `--namespace` flags, forcing you to be explicit about your target
+- **Context Validation**: Validates that the specified context exists in your kubeconfig to prevent typos and targeting non-existent clusters
 - **Interactive Confirmation**: Shows detailed information about the target cluster and namespace before executing dangerous commands
 - **Transparent Pass-through**: Safe commands like `get`, `describe`, `logs` etc. are passed through without any checks
 - **Comprehensive Coverage**: Protects against dangerous operations including delete, apply, create, replace, patch, edit, scale, rollout, drain, cordon, uncordon, and taint
@@ -58,6 +59,10 @@ kubectl safe delete deployment myapp --context=production --namespace=default
 kubectl safe delete pod mypod
 # Error: dangerous command requires explicit --context and --namespace flag(s)
 
+# This will fail - invalid context
+kubectl safe delete pod mypod --context=invalid-cluster --namespace=default
+# Error: context 'invalid-cluster' not found in kubeconfig. Available contexts: production, staging, development
+
 # Safe commands pass through without checks
 kubectl safe get pods
 kubectl safe describe deployment myapp
@@ -85,9 +90,10 @@ The following kubectl commands trigger safety checks:
 When executing a dangerous command, kubectl-safe will:
 
 1. **Validate Required Flags**: Ensure both `--context` and `--namespace` are provided
-2. **Show Target Information**: Display the target cluster context and namespace
-3. **Request Confirmation**: Ask for explicit confirmation before proceeding
-4. **Execute Safely**: Only proceed if the user confirms with "yes" or "y"
+2. **Validate Context Existence**: Verify the specified context exists in your kubeconfig
+3. **Show Target Information**: Display the target cluster context and namespace
+4. **Request Confirmation**: Ask for explicit confirmation before proceeding
+5. **Execute Safely**: Only proceed if the user confirms with "yes" or "y"
 
 Example safety prompt:
 

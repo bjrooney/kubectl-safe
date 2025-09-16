@@ -67,6 +67,7 @@ func isDangerousCommand(args []string) bool {
 func validateRequiredFlags(args []string) error {
 	hasContext := false
 	hasNamespace := false
+	contextValue := ""
 
 	for _, arg := range args {
 		if arg == "--context" || arg == "-c" {
@@ -78,10 +79,16 @@ func validateRequiredFlags(args []string) error {
 		// Check for flag=value format
 		if strings.HasPrefix(arg, "--context=") || strings.HasPrefix(arg, "-c=") {
 			hasContext = true
+			contextValue = extractFlagValue(args, "--context", "-c")
 		}
 		if strings.HasPrefix(arg, "--namespace=") || strings.HasPrefix(arg, "-n=") {
 			hasNamespace = true
 		}
+	}
+
+	// If context was found but not extracted yet (separate flag format), extract it
+	if hasContext && contextValue == "" {
+		contextValue = extractFlagValue(args, "--context", "-c")
 	}
 
 	var missing []string
@@ -94,6 +101,19 @@ func validateRequiredFlags(args []string) error {
 
 	if len(missing) > 0 {
 		return fmt.Errorf("dangerous command requires explicit %s flag(s). This ensures you're targeting the correct cluster and namespace", strings.Join(missing, " and "))
+	}
+
+	// Validate that the provided context exists in kubeconfig
+	if hasContext && contextValue != "" && contextValue != "<not specified>" {
+		availableContexts, err := getKubeconfigContexts()
+		if err != nil {
+			return fmt.Errorf("failed to get available contexts from kubeconfig: %w", err)
+		}
+
+		if !slices.Contains(availableContexts, contextValue) {
+			return fmt.Errorf("context '%s' not found in kubeconfig. Available contexts: %s", 
+				contextValue, strings.Join(availableContexts, ", "))
+		}
 	}
 
 	return nil
@@ -157,6 +177,33 @@ func executeKubectl(args []string) error {
 	cmd.Stdin = os.Stdin
 	
 	return cmd.Run()
+}
+
+// getKubeconfigContexts returns the list of available contexts from kubeconfig
+func getKubeconfigContexts() ([]string, error) {
+	cmd := exec.Command("kubectl", "config", "get-contexts", "--output=name")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute kubectl config get-contexts: %w", err)
+	}
+
+	outputStr := strings.TrimSpace(string(output))
+	if outputStr == "" {
+		// No contexts available - return empty slice
+		return []string{}, nil
+	}
+
+	contexts := strings.Split(outputStr, "\n")
+	
+	// Filter out empty strings
+	var validContexts []string
+	for _, context := range contexts {
+		if strings.TrimSpace(context) != "" {
+			validContexts = append(validContexts, strings.TrimSpace(context))
+		}
+	}
+	
+	return validContexts, nil
 }
 
 // showUsage displays help information
