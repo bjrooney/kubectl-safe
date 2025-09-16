@@ -1,0 +1,246 @@
+name: Publish to Krew Index
+
+on:
+  release:
+    types: [published]
+  repository_dispatch:
+    types: [krew-publish]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  publish-krew:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout kubectl-safe repository
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.25'
+    
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+          echo "version=${{ github.event.client_payload.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        fi
+        echo "Version: $(cat $GITHUB_OUTPUT)"
+    
+    - name: Download release assets and calculate checksums
+      id: checksums
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        # Create temp directory for downloads
+        mkdir -p /tmp/checksums
+        cd /tmp/checksums
+        
+        # Download all platform archives
+        declare -A platforms=(
+          ["linux-amd64"]="kubectl-safe-linux-amd64.tar.gz"
+          ["linux-arm64"]="kubectl-safe-linux-arm64.tar.gz"
+          ["darwin-amd64"]="kubectl-safe-darwin-amd64.tar.gz"
+          ["darwin-arm64"]="kubectl-safe-darwin-arm64.tar.gz"
+          ["windows-amd64"]="kubectl-safe-windows-amd64.tar.gz"
+        )
+        
+        # Calculate checksums for each platform
+        for platform in "${!platforms[@]}"; do
+          file="${platforms[$platform]}"
+          url="https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/${file}"
+          
+          echo "Downloading ${url}"
+          curl -L -o "${file}" "${url}"
+          
+          if [ $? -eq 0 ] && [ -f "${file}" ]; then
+            checksum=$(sha256sum "${file}" | cut -d' ' -f1)
+            echo "${platform}_checksum=${checksum}" >> $GITHUB_OUTPUT
+            echo "✓ ${platform}: ${checksum}"
+          else
+            echo "✗ Failed to download ${file}"
+            exit 1
+          fi
+        done
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        # Get the previous tag
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        
+        echo "Generating changelog from ${PREV_TAG} to ${VERSION}"
+        
+        # Generate changelog
+        if [ -n "$PREV_TAG" ]; then
+          CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+        else
+          CHANGELOG=$(git log --pretty=format:"- %s" --no-merges -10)
+        fi
+        
+        # Write changelog to output (handle multiline)
+        {
+          echo "changelog<<EOF"
+          echo "$CHANGELOG"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
+    
+    - name: Update Krew plugin manifest
+      id: manifest
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        # Create updated safe.yaml
+        cat > /tmp/safe.yaml << EOF
+        apiVersion: krew.googlecode.com/v1alpha2
+        kind: Plugin
+        metadata:
+          name: safe
+        spec:
+          version: ${VERSION}
+          homepage: https://github.com/bjrooney/kubectl-safe
+          shortDescription: Interactive safety net for dangerous kubectl commands
+          description: |
+            kubectl-safe provides an interactive safety net for dangerous kubectl commands.
+            
+            It acts as a wrapper around destructive kubectl operations to prevent common
+            mistakes by:
+            - Requiring explicit --context and --namespace flags for dangerous commands
+            - Showing interactive confirmation prompts with target details
+            - Acting as a final checkpoint before potentially destructive operations
+            
+            Dangerous commands include: delete, apply, create, replace, patch, edit, 
+            scale, rollout, drain, cordon, uncordon, and taint.
+            
+            For safe commands like get, describe, logs, etc., this plugin acts as a
+            transparent pass-through to kubectl without any safety checks.
+          platforms:
+          - selector:
+              matchLabels:
+                os: linux
+                arch: amd64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-amd64.tar.gz
+            sha256: "${{ steps.checksums.outputs.linux-amd64_checksum }}"
+            bin: kubectl-safe
+          - selector:
+              matchLabels:
+                os: linux
+                arch: arm64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-arm64.tar.gz
+            sha256: "${{ steps.checksums.outputs.linux-arm64_checksum }}"
+            bin: kubectl-safe
+          - selector:
+              matchLabels:
+                os: darwin
+                arch: amd64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-amd64.tar.gz
+            sha256: "${{ steps.checksums.outputs.darwin-amd64_checksum }}"
+            bin: kubectl-safe
+          - selector:
+              matchLabels:
+                os: darwin
+                arch: arm64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-arm64.tar.gz
+            sha256: "${{ steps.checksums.outputs.darwin-arm64_checksum }}"
+            bin: kubectl-safe
+          - selector:
+              matchLabels:
+                os: windows
+                arch: amd64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-windows-amd64.tar.gz
+            sha256: "${{ steps.checksums.outputs.windows-amd64_checksum }}"
+            bin: kubectl-safe.exe
+        EOF
+        
+        echo "manifest_path=/tmp/safe.yaml" >> $GITHUB_OUTPUT
+    
+    - name: Checkout krew-index repository
+      uses: actions/checkout@v5
+      with:
+        repository: bjrooney/krew-index
+        token: ${{ secrets.KREW_INDEX_TOKEN }}
+        path: krew-index
+        ref: main
+    
+    - name: Update krew-index and create PR
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        CHANGELOG: ${{ steps.changelog.outputs.changelog }}
+        GH_TOKEN: ${{ secrets.KREW_INDEX_TOKEN }}
+      run: |
+        cd krew-index
+        
+        # Configure git
+        git config user.name "kubectl-safe-bot"
+        git config user.email "action@github.com"
+        
+        # Create branch for the update
+        BRANCH_NAME="update-safe-${VERSION}"
+        git checkout -b "${BRANCH_NAME}"
+        
+        # Ensure plugins directory exists
+        mkdir -p plugins
+        
+        # Copy updated manifest
+        cp "${{ steps.manifest.outputs.manifest_path }}" plugins/safe.yaml
+        
+        # Add and commit changes
+        git add plugins/safe.yaml
+        git commit -m "Update kubectl-safe to ${VERSION}
+
+        ## Changes in ${VERSION}
+        ${CHANGELOG}
+        
+        ## Plugin Updates
+        - Version: ${VERSION}
+        - Updated SHA256 checksums for all platforms
+        - Release URL: https://github.com/bjrooney/kubectl-safe/releases/tag/${VERSION}
+        "
+        
+        # Push branch
+        git push origin "${BRANCH_NAME}"
+        
+        # Create PR using GitHub CLI
+        gh pr create \
+          --title "Update kubectl-safe plugin to ${VERSION}" \
+          --body "## 🚀 kubectl-safe Plugin Update
+
+        This PR updates the kubectl-safe plugin to version \`${VERSION}\`.
+
+        ### Changes in this version:
+        ${CHANGELOG}
+
+        ### Technical Details:
+        - **Version**: ${VERSION}
+        - **Release**: https://github.com/bjrooney/kubectl-safe/releases/tag/${VERSION}
+        - **SHA256 checksums**: Updated for all supported platforms
+        - **Platforms**: Linux (amd64, arm64), macOS (amd64, arm64), Windows (amd64)
+
+        ### Verification:
+        After merging, users can install/update with:
+        \`\`\`bash
+        kubectl krew install safe
+        # or
+        kubectl krew upgrade safe
+        \`\`\`
+
+        ---
+        *This PR was automatically created by the kubectl-safe release workflow.*" \
+          --head "${BRANCH_NAME}" \
+          --base main \
+          --repo bjrooney/krew-index
