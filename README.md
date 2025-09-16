@@ -123,6 +123,10 @@ make build
 make dev-install
 ```
 
+## Krew Index Publishing
+
+This project includes automated publishing to `@bjrooney/krew-index` with version control and change tracking. See [docs/krew-publishing.md](docs/krew-publishing.md) for details on how the automation works and how to set it up.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
