@@ -96,6 +96,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Check if the context exists in kubeconfig before confirmation prompt
+	if !contextExists(foundContext) {
+		color.Red("ERROR: The specified context '%s' does not exist in your kubeconfig.", foundContext)
+		fmt.Println("Please check your --context value and try again.")
+		os.Exit(1)
+	}
+
 	// 3. Final confirmation prompt.
 	yellow := color.New(color.FgYellow)
 	cyan := color.New(color.FgCyan)
@@ -126,7 +133,44 @@ func main() {
 
 // askForConfirmation reads a single y/n from the console.
 func askForConfirmation() bool {
+// contextExists checks if the given context exists in the user's kubeconfig
+func contextExists(context string) bool {
+	if context == "" {
+		return false
+	}
+	cmd := exec.Command("kubectl", "config", "get-contexts", "-o", "name")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	contexts := strings.Split(string(output), "\n")
+	for _, ctx := range contexts {
+		if ctx == context {
+			return true
+		}
+	}
+	return false
+}
 	reader := bufio.NewReader(os.Stdin)
 	response, _ := reader.ReadString('\n')
 	return strings.ToLower(strings.TrimSpace(response)) == "y"
+}
+
+// contextExists checks if the given context exists in the user's kubeconfig
+func contextExists(context string) bool {
+	if context == "" {
+		return false
+	}
+	cmd := exec.Command("kubectl", "config", "get-contexts", "-o", "name")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	contexts := strings.Split(string(output), "\n")
+	for _, ctx := range contexts {
+		if ctx == context {
+			return true
+		}
+	}
+	return false
 }
