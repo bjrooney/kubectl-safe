@@ -109,67 +109,69 @@ jobs:
         # Create updated safe.yaml
         cat > /tmp/safe.yaml << EOF
         apiVersion: krew.googlecode.com/v1alpha2
-            # Create updated safe.yaml with correct checksum substitution
-            cat > /tmp/safe.yaml << EOF
-    apiVersion: krew.googlecode.com/v1alpha2
-    kind: Plugin
-    metadata:
-      name: safe
-    spec:
-      version: ${VERSION}
-      homepage: https://github.com/bjrooney/kubectl-safe
-      shortDescription: Interactive safety net for dangerous kubectl commands
-      description: |
-        kubectl-safe provides an interactive safety net for dangerous kubectl commands.
+        kind: Plugin
+        metadata:
+          name: safe
+        spec:
+          version: ${VERSION}
+          homepage: https://github.com/bjrooney/kubectl-safe
+          shortDescription: Interactive safety net for dangerous kubectl commands
+          description: |
+            kubectl-safe provides an interactive safety net for dangerous kubectl commands.
+            
+            It acts as a wrapper around destructive kubectl operations to prevent common
+            mistakes by:
+            - Requiring explicit --context and --namespace flags for dangerous commands
+            - Showing interactive confirmation prompts with target details
+            - Acting as a final checkpoint before potentially destructive operations
+            
+            Dangerous commands include: delete, apply, create, replace, patch, edit, 
+            scale, rollout, drain, cordon, uncordon, and taint.
+            
+            For safe commands like get, describe, logs, etc., this plugin acts as a
+            transparent pass-through to kubectl without any safety checks.
+          platforms:
+          - selector:
+              matchLabels:
+                os: linux
+                arch: amd64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-amd64.tar.gz
+            sha256: "$LINUX_AMD64_CHECKSUM"
+            bin: kubectl-safe
+          - selector:
+              matchLabels:
+                os: linux
+                arch: arm64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-arm64.tar.gz
+            sha256: "$LINUX_ARM64_CHECKSUM"
+            bin: kubectl-safe
+          - selector:
+              matchLabels:
+                os: darwin
+                arch: amd64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-amd64.tar.gz
+            sha256: "$DARWIN_AMD64_CHECKSUM"
+            bin: kubectl-safe
+          - selector:
+              matchLabels:
+                os: darwin
+                arch: arm64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-arm64.tar.gz
+            sha256: "$DARWIN_ARM64_CHECKSUM"
+            bin: kubectl-safe
+          - selector:
+              matchLabels:
+                os: windows
+                arch: amd64
+            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-windows-amd64.tar.gz
+            sha256: "$WINDOWS_AMD64_CHECKSUM"
+            bin: kubectl-safe.exe
+        EOF
+        
+        echo "manifest_path=/tmp/safe.yaml" >> $GITHUB_OUTPUT
     
-        It acts as a wrapper around destructive kubectl operations to prevent common
-        mistakes by:
-        - Requiring explicit --context and --namespace flags for dangerous commands
-        - Showing interactive confirmation prompts with target details
-        - Acting as a final checkpoint before potentially destructive operations
-    
-        Dangerous commands include: delete, apply, create, replace, patch, edit, 
-        scale, rollout, drain, cordon, uncordon, and taint.
-    
-        For safe commands like get, describe, logs, etc., this plugin acts as a
-        transparent pass-through to kubectl without any safety checks.
-      platforms:
-      - selector:
-          matchLabels:
-            os: linux
-            arch: amd64
-        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-amd64.tar.gz
-        sha256: "${LINUX_AMD64_CHECKSUM}"
-        bin: kubectl-safe
-      - selector:
-          matchLabels:
-            os: linux
-            arch: arm64
-        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-arm64.tar.gz
-        sha256: "${LINUX_ARM64_CHECKSUM}"
-        bin: kubectl-safe
-      - selector:
-          matchLabels:
-            os: darwin
-            arch: amd64
-        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-amd64.tar.gz
-        sha256: "${DARWIN_AMD64_CHECKSUM}"
-        bin: kubectl-safe
-      - selector:
-          matchLabels:
-            os: darwin
-            arch: arm64
-        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-arm64.tar.gz
-        sha256: "${DARWIN_ARM64_CHECKSUM}"
-        bin: kubectl-safe
-      - selector:
-          matchLabels:
-            os: windows
-            arch: amd64
-        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-windows-amd64.tar.gz
-        sha256: "${WINDOWS_AMD64_CHECKSUM}"
-        bin: kubectl-safe.exe
-            echo "manifest_path=/tmp/safe.yaml" >> $GITHUB_OUTPUT
+    - name: Checkout krew-index repository
+      uses: actions/checkout@v5
       with:
         repository: bjrooney/krew-index
         token: ${{ secrets.KREW_INDEX_TOKEN }}
