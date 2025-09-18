@@ -253,3 +253,17 @@ jobs:
           --head "${BRANCH_NAME}" \
           --base main \
           --repo bjrooney/krew-index
+    
+    - name: Create krew-index release and upload artifacts
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        GH_TOKEN: ${{ secrets.KREW_INDEX_TOKEN }}
+      run: |
+        echo "Creating release in krew-index repo..."
+        RELEASE_TAG="${VERSION}"
+        RELEASE_NAME="kubectl-safe ${VERSION}"
+        RELEASE_BODY="Artifacts for kubectl-safe ${VERSION}. See PR for details."
+        gh release create "$RELEASE_TAG" artifacts/*.tar.gz \
+          --repo bjrooney/krew-index \
+          --title "$RELEASE_NAME" \
+          --notes "$RELEASE_BODY" || echo "Release may already exist."
