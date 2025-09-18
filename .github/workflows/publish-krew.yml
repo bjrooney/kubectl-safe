@@ -62,13 +62,14 @@ jobs:
         for platform in "${!platforms[@]}"; do
           file="${platforms[$platform]}"
           url="https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/${file}"
-          
+
           echo "Downloading ${url}"
           curl -L -o "${file}" "${url}"
-          
+
           if [ $? -eq 0 ] && [ -f "${file}" ]; then
             checksum=$(sha256sum "${file}" | cut -d' ' -f1)
-            echo "${platform}_checksum=${checksum}" >> $GITHUB_OUTPUT
+            # Use the recommended syntax for multiline outputs
+            echo "${platform}_checksum=${checksum}" >> $GITHUB_ENV
             echo "✓ ${platform}: ${checksum}"
           else
             echo "✗ Failed to download ${file}"
@@ -135,35 +136,35 @@ jobs:
                 os: linux
                 arch: amd64
             uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-amd64.tar.gz
-            sha256: "${{ steps.checksums.outputs.linux-amd64_checksum }}"
+            sha256: "$LINUX_AMD64_CHECKSUM"
             bin: kubectl-safe
           - selector:
               matchLabels:
                 os: linux
                 arch: arm64
             uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-arm64.tar.gz
-            sha256: "${{ steps.checksums.outputs.linux-arm64_checksum }}"
+            sha256: "$LINUX_ARM64_CHECKSUM"
             bin: kubectl-safe
           - selector:
               matchLabels:
                 os: darwin
                 arch: amd64
             uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-amd64.tar.gz
-            sha256: "${{ steps.checksums.outputs.darwin-amd64_checksum }}"
+            sha256: "$DARWIN_AMD64_CHECKSUM"
             bin: kubectl-safe
           - selector:
               matchLabels:
                 os: darwin
                 arch: arm64
             uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-arm64.tar.gz
-            sha256: "${{ steps.checksums.outputs.darwin-arm64_checksum }}"
+            sha256: "$DARWIN_ARM64_CHECKSUM"
             bin: kubectl-safe
           - selector:
               matchLabels:
                 os: windows
                 arch: amd64
             uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-windows-amd64.tar.gz
-            sha256: "${{ steps.checksums.outputs.windows-amd64_checksum }}"
+            sha256: "$WINDOWS_AMD64_CHECKSUM"
             bin: kubectl-safe.exe
         EOF
         
