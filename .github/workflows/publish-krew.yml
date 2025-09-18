@@ -169,8 +169,6 @@ jobs:
         uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-windows-amd64.tar.gz
         sha256: "${WINDOWS_AMD64_CHECKSUM}"
         bin: kubectl-safe.exe
-    EOF
-
             echo "manifest_path=/tmp/safe.yaml" >> $GITHUB_OUTPUT
       with:
         repository: bjrooney/krew-index
