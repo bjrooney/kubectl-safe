@@ -184,37 +184,42 @@ jobs:
         GH_TOKEN: ${{ secrets.KREW_INDEX_TOKEN }}
       run: |
         cd krew-index
-        
+
         # Configure git
         git config user.name "kubectl-safe-bot"
         git config user.email "action@github.com"
-        
+
         # Create branch for the update
         BRANCH_NAME="update-safe-${VERSION}"
         git checkout -b "${BRANCH_NAME}"
-        
-        # Ensure plugins directory exists
+
+        # Ensure plugins and artifacts directories exist
         mkdir -p plugins
-        
+        mkdir -p artifacts
+
         # Copy updated manifest
         cp "${{ steps.manifest.outputs.manifest_path }}" plugins/safe.yaml
-        
+
+        # Copy downloaded artifacts from /tmp/checksums to artifacts/
+        cp /tmp/checksums/*.tar.gz artifacts/
+
         # Add and commit changes
-        git add plugins/safe.yaml
+        git add plugins/safe.yaml artifacts/*.tar.gz
         git commit -m "Update kubectl-safe to ${VERSION}
 
         ## Changes in ${VERSION}
         ${CHANGELOG}
-        
+
         ## Plugin Updates
         - Version: ${VERSION}
         - Updated SHA256 checksums for all platforms
         - Release URL: https://github.com/bjrooney/kubectl-safe/releases/tag/${VERSION}
+        - Artifacts published in artifacts/ directory
         "
-        
+
         # Push branch
         git push origin "${BRANCH_NAME}"
-        
+
         # Create PR using GitHub CLI
         gh pr create \
           --title "Update kubectl-safe plugin to ${VERSION}" \
@@ -230,6 +235,7 @@ jobs:
         - **Release**: https://github.com/bjrooney/kubectl-safe/releases/tag/${VERSION}
         - **SHA256 checksums**: Updated for all supported platforms
         - **Platforms**: Linux (amd64, arm64), macOS (amd64, arm64), Windows (amd64)
+        - **Artifacts published in krew-index/artifacts**
 
         ### Verification:
         After merging, users can install/update with:
