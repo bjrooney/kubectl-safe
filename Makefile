@@ -45,4 +45,25 @@ dev-install: build
 	@mkdir -p $$HOME/.local/bin
 	cp $(BUILD_DIR)/$(BINARY_NAME) $$HOME/.local/bin/
 
+# Cross-platform build and packaging for Krew release assets
+DIST_DIR=dist
+
+build-all: clean
+	@echo "Building release assets for all platforms..."
+	@mkdir -p $(DIST_DIR)
+	GOOS=linux   GOARCH=amd64  go build $(LDFLAGS) -o $(DIST_DIR)/kubectl-safe-linux-amd64/kubectl-safe ./cmd/kubectl-safe
+	GOOS=linux   GOARCH=arm64  go build $(LDFLAGS) -o $(DIST_DIR)/kubectl-safe-linux-arm64/kubectl-safe ./cmd/kubectl-safe
+	GOOS=darwin  GOARCH=amd64  go build $(LDFLAGS) -o $(DIST_DIR)/kubectl-safe-darwin-amd64/kubectl-safe ./cmd/kubectl-safe
+	GOOS=darwin  GOARCH=arm64  go build $(LDFLAGS) -o $(DIST_DIR)/kubectl-safe-darwin-arm64/kubectl-safe ./cmd/kubectl-safe
+	GOOS=windows GOARCH=amd64  go build $(LDFLAGS) -o $(DIST_DIR)/kubectl-safe-windows-amd64/kubectl-safe.exe ./cmd/kubectl-safe
+
+	@echo "Packaging release tarballs..."
+	cd $(DIST_DIR)/kubectl-safe-linux-amd64   && tar -czvf ../kubectl-safe-linux-amd64.tar.gz   kubectl-safe
+	cd $(DIST_DIR)/kubectl-safe-linux-arm64   && tar -czvf ../kubectl-safe-linux-arm64.tar.gz   kubectl-safe
+	cd $(DIST_DIR)/kubectl-safe-darwin-amd64  && tar -czvf ../kubectl-safe-darwin-amd64.tar.gz  kubectl-safe
+	cd $(DIST_DIR)/kubectl-safe-darwin-arm64  && tar -czvf ../kubectl-safe-darwin-arm64.tar.gz  kubectl-safe
+	cd $(DIST_DIR)/kubectl-safe-windows-amd64 && tar -czvf ../kubectl-safe-windows-amd64.tar.gz kubectl-safe.exe
+
+	@echo "Release assets are ready in $(DIST_DIR)"
+
 .DEFAULT_GOAL := build

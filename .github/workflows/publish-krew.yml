@@ -36,15 +36,23 @@ jobs:
         fi
         echo "Version: $(cat $GITHUB_OUTPUT)"
     
-    - name: Download release assets and calculate checksums
+    - name: Build and package release assets
+      run: make build-all
+
+    - name: Calculate checksums
       id: checksums
       run: |
-        # Add your checksum calculation logic here
-        # Example: download assets and calculate checksums
-        # LINUX_AMD64_CHECKSUM=$(curl -L ... | sha256sum | awk '{print $1}')
-        # export LINUX_AMD64_CHECKSUM
-        # ...repeat for other platforms...
-    
+        LINUX_AMD64_CHECKSUM=$(sha256sum dist/kubectl-safe-linux-amd64.tar.gz | awk '{print $1}')
+        LINUX_ARM64_CHECKSUM=$(sha256sum dist/kubectl-safe-linux-arm64.tar.gz | awk '{print $1}')
+        DARWIN_AMD64_CHECKSUM=$(sha256sum dist/kubectl-safe-darwin-amd64.tar.gz | awk '{print $1}')
+        DARWIN_ARM64_CHECKSUM=$(sha256sum dist/kubectl-safe-darwin-arm64.tar.gz | awk '{print $1}')
+        WINDOWS_AMD64_CHECKSUM=$(sha256sum dist/kubectl-safe-windows-amd64.tar.gz | awk '{print $1}')
+        echo "LINUX_AMD64_CHECKSUM=$LINUX_AMD64_CHECKSUM" >> $GITHUB_ENV
+        echo "LINUX_ARM64_CHECKSUM=$LINUX_ARM64_CHECKSUM" >> $GITHUB_ENV
+        echo "DARWIN_AMD64_CHECKSUM=$DARWIN_AMD64_CHECKSUM" >> $GITHUB_ENV
+        echo "DARWIN_ARM64_CHECKSUM=$DARWIN_ARM64_CHECKSUM" >> $GITHUB_ENV
+        echo "WINDOWS_AMD64_CHECKSUM=$WINDOWS_AMD64_CHECKSUM" >> $GITHUB_ENV
+
     - name: Write Krew plugin manifest locally
       run: |
         VERSION="${{ steps.version.outputs.version }}"
