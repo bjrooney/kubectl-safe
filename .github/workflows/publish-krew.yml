@@ -47,129 +47,82 @@ jobs:
                 uses: actions/checkout@v5
                 with:
                   fetch-depth: 0
-              - name: Determine version
-                id: version
-                run: |
-                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-                    echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-                  else
-                    echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-                  fi
-              - name: Write Krew plugin manifest locally
-                run: |
-                  VERSION="${{ steps.version.outputs.version }}"
-                  mkdir -p plugins
-                  cat <<EOF > plugins/safe.yaml
-          - selector:
-              matchLabels:
-                os: darwin
-                arch: arm64
-            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-arm64.tar.gz
-            sha256: "${DARWIN_ARM64_CHECKSUM}"
-            bin: kubectl-safe
-          - selector:
-              matchLabels:
-                os: windows
-                arch: amd64
-            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-windows-amd64.tar.gz
-            sha256: "${WINDOWS_AMD64_CHECKSUM}"
-            bin: kubectl-safe.exe
-        EOF
-        
-        echo "manifest_path=/tmp/safe.yaml" >> $GITHUB_OUTPUT
+      publish-local-manifest:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout kubectl-safe repository
+            uses: actions/checkout@v5
+            with:
+              fetch-depth: 0
+          - name: Determine version
+            id: version
+            run: |
+              if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+              else
+                echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+              fi
+          - name: Write Krew plugin manifest locally
+            run: |
+              VERSION="${{ steps.version.outputs.version }}"
+              mkdir -p plugins
+              cat <<EOF > plugins/safe.yaml
+    apiVersion: krew.googlecode.com/v1alpha2
+    kind: Plugin
+    metadata:
+      name: safe
+    spec:
+      version: ${VERSION}
+      homepage: https://github.com/bjrooney/kubectl-safe
+      shortDescription: Interactive safety net for dangerous kubectl commands
+      description: |
+        kubectl-safe provides an interactive safety net for dangerous kubectl commands.
     
-    - name: Checkout krew-index repository
-      uses: actions/checkout@v5
-      with:
-        repository: bjrooney/krew-index
-        token: ${{ secrets.KREW_INDEX_TOKEN }}
-        path: krew-index
-        ref: main
+        It acts as a wrapper around destructive kubectl operations to prevent common
+        mistakes by:
+        - Requiring explicit --context and --namespace flags for dangerous commands
+        - Showing interactive confirmation prompts with target details
+        - Acting as a final checkpoint before potentially destructive operations
     
-    - name: Update krew-index and create PR
-      env:
-        VERSION: ${{ steps.version.outputs.version }}
-        CHANGELOG: ${{ steps.changelog.outputs.changelog }}
-        GH_TOKEN: ${{ secrets.KREW_INDEX_TOKEN }}
-      run: |
-        cd krew-index
-
-        # Configure git
-        git config user.name "kubectl-safe-bot"
-        git config user.email "action@github.com"
-
-        # Create branch for the update
-        BRANCH_NAME="update-safe-${VERSION}"
-        git checkout -b "${BRANCH_NAME}"
-
-        # Ensure plugins and artifacts directories exist
-        mkdir -p plugins
-        mkdir -p artifacts
-
-        # Copy updated manifest
-        cp "${{ steps.manifest.outputs.manifest_path }}" plugins/safe.yaml
-
-        # Copy downloaded artifacts from /tmp/checksums to artifacts/
-        cp /tmp/checksums/*.tar.gz artifacts/
-
-        # Add and commit changes
-        git add plugins/safe.yaml artifacts/*.tar.gz
-        git commit -m "Update kubectl-safe to ${VERSION}
-
-        ## Changes in ${VERSION}
-        ${CHANGELOG}
-
-        ## Plugin Updates
-        - Version: ${VERSION}
-        - Updated SHA256 checksums for all platforms
-        - Release URL: https://github.com/bjrooney/kubectl-safe/releases/tag/${VERSION}
-        - Artifacts published in artifacts/ directory
-        "
-
-        # Push branch
-        git push origin "${BRANCH_NAME}"
-
-        # Create PR using GitHub CLI
-        gh pr create \
-          --title "Update kubectl-safe plugin to ${VERSION}" \
-          --body "## 🚀 kubectl-safe Plugin Update
-
-        This PR updates the kubectl-safe plugin to version \`${VERSION}\`.
-
-        ### Changes in this version:
-        ${CHANGELOG}
-
-        ### Technical Details:
-        - **Version**: ${VERSION}
-        - **Release**: https://github.com/bjrooney/kubectl-safe/releases/tag/${VERSION}
-        - **SHA256 checksums**: Updated for all supported platforms
-        - **Platforms**: Linux (amd64, arm64), macOS (amd64, arm64), Windows (amd64)
-        - **Artifacts published in krew-index/artifacts**
-
-        ### Verification:
-        After merging, users can install/update with:
-        \`\`\`bash
-        kubectl krew install safe
-        # or
-        kubectl krew upgrade safe
-        \`\`\`
-
-        ---
-        *This PR was automatically created by the kubectl-safe release workflow.*" \
-          --head "${BRANCH_NAME}" \
-          --base main \
-          --repo bjrooney/krew-index
+        Dangerous commands include: delete, apply, create, replace, patch, edit, 
+        scale, rollout, drain, cordon, uncordon, and taint.
     
-    - name: Create krew-index release and upload artifacts
-      env:
-        VERSION: ${{ steps.version.outputs.version }}
-        GH_TOKEN: ${{ secrets.KREW_INDEX_TOKEN }}
-      run: |
-        echo "Creating release in krew-index repo..."
-        RELEASE_TAG="${VERSION}"
-        RELEASE_NAME="kubectl-safe ${VERSION}"
-        RELEASE_BODY="Artifacts for kubectl-safe ${VERSION}. See PR for details."
-        gh release create "$RELEASE_TAG" artifacts/*.tar.gz \
-          --repo bjrooney/krew-index \
-          --title "$RELEASE_NAME" \
-          --notes "$RELEASE_BODY" || echo "Release may already exist."
+        For safe commands like get, describe, logs, etc., this plugin acts as a
+        transparent pass-through to kubectl without any safety checks.
+      platforms:
+      - selector:
+          matchLabels:
+            os: linux
+            arch: amd64
+        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-amd64.tar.gz
+        sha256: "${LINUX_AMD64_CHECKSUM}"
+        bin: kubectl-safe
+      - selector:
+          matchLabels:
+            os: linux
+            arch: arm64
+        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-arm64.tar.gz
+        sha256: "${LINUX_ARM64_CHECKSUM}"
+        bin: kubectl-safe
+      - selector:
+          matchLabels:
+            os: darwin
+            arch: amd64
+        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-amd64.tar.gz
+        sha256: "${DARWIN_AMD64_CHECKSUM}"
+        bin: kubectl-safe
+      - selector:
+          matchLabels:
+            os: darwin
+            arch: arm64
+        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-arm64.tar.gz
+        sha256: "${DARWIN_ARM64_CHECKSUM}"
+        bin: kubectl-safe
+      - selector:
+          matchLabels:
+            os: windows
+            arch: amd64
+        uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-windows-amd64.tar.gz
+        sha256: "${WINDOWS_AMD64_CHECKSUM}"
+        bin: kubectl-safe.exe
+    EOF
