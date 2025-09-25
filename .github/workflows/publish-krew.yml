@@ -1,10 +1,6 @@
-name: Publish to Krew Index
+name: Generate Local Krew Manifest
 
 on:
-  release:
-    types: [published]
-  repository_dispatch:
-    types: [krew-publish]
   workflow_dispatch:
     inputs:
       version:
@@ -43,117 +39,27 @@ jobs:
     - name: Download release assets and calculate checksums
       id: checksums
       run: |
-        VERSION="${{ steps.version.outputs.version }}"
-        
-        # Create temp directory for downloads
-        mkdir -p /tmp/checksums
-        cd /tmp/checksums
-        
-        # Download all platform archives
-        declare -A platforms=(
-          ["linux-amd64"]="kubectl-safe-linux-amd64.tar.gz"
-          ["linux-arm64"]="kubectl-safe-linux-arm64.tar.gz"
-          ["darwin-amd64"]="kubectl-safe-darwin-amd64.tar.gz"
-          ["darwin-arm64"]="kubectl-safe-darwin-arm64.tar.gz"
-          ["windows-amd64"]="kubectl-safe-windows-amd64.tar.gz"
-        )
-        
-        # Calculate checksums for each platform
-        for platform in "${!platforms[@]}"; do
-          file="${platforms[$platform]}"
-          url="https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/${file}"
-
-          echo "Downloading ${url}"
-          curl -L -o "${file}" "${url}"
-
-          if [ $? -eq 0 ] && [ -f "${file}" ]; then
-            checksum=$(sha256sum "${file}" | cut -d' ' -f1)
-            # Export as uppercase variables for manifest
-            varname=$(echo ${platform} | tr 'a-z-' 'A-Z_')
-            export "${varname}_CHECKSUM=${checksum}"
-            echo "${varname}_CHECKSUM=${checksum}" >> $GITHUB_ENV
-            echo "✓ ${platform}: ${checksum}"
-          else
-            echo "✗ Failed to download ${file}"
-            exit 1
-          fi
-        done
-    
-    - name: Generate changelog
-      id: changelog
-      run: |
-        VERSION="${{ steps.version.outputs.version }}"
-        
-        # Get the previous tag
-        PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-        
-        echo "Generating changelog from ${PREV_TAG} to ${VERSION}"
-        
-        # Generate changelog
-        if [ -n "$PREV_TAG" ]; then
-          CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --no-merges)
-        else
-          CHANGELOG=$(git log --pretty=format:"- %s" --no-merges -10)
-        fi
-        
-        # Write changelog to output (handle multiline)
-        {
-          echo "changelog<<EOF"
-          echo "$CHANGELOG"
-          echo "EOF"
-        } >> $GITHUB_OUTPUT
-    
-    - name: Update Krew plugin manifest
-      id: manifest
-      run: |
-        VERSION="${{ steps.version.outputs.version }}"
-        
-        # Create updated safe.yaml
-        cat > /tmp/safe.yaml << EOF
-        apiVersion: krew.googlecode.com/v1alpha2
-        kind: Plugin
-        metadata:
-          name: safe
-        spec:
-          version: ${VERSION}
-          homepage: https://github.com/bjrooney/kubectl-safe
-          shortDescription: Interactive safety net for dangerous kubectl commands
-          description: |
-            kubectl-safe provides an interactive safety net for dangerous kubectl commands.
-            
-            It acts as a wrapper around destructive kubectl operations to prevent common
-            mistakes by:
-            - Requiring explicit --context and --namespace flags for dangerous commands
-            - Showing interactive confirmation prompts with target details
-            - Acting as a final checkpoint before potentially destructive operations
-            
-            Dangerous commands include: delete, apply, create, replace, patch, edit, 
-            scale, rollout, drain, cordon, uncordon, and taint.
-            
-            For safe commands like get, describe, logs, etc., this plugin acts as a
-            transparent pass-through to kubectl without any safety checks.
-          platforms:
-          - selector:
-              matchLabels:
-                os: linux
-                arch: amd64
-            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-amd64.tar.gz
-            sha256: "${LINUX_AMD64_CHECKSUM}"
-            bin: kubectl-safe
-          - selector:
-              matchLabels:
-                os: linux
-                arch: arm64
-            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-linux-arm64.tar.gz
-            sha256: "${LINUX_ARM64_CHECKSUM}"
-            bin: kubectl-safe
-          - selector:
-              matchLabels:
-                os: darwin
-                arch: amd64
-            uri: https://github.com/bjrooney/kubectl-safe/releases/download/${VERSION}/kubectl-safe-darwin-amd64.tar.gz
-            sha256: "${DARWIN_AMD64_CHECKSUM}"
-            bin: kubectl-safe
+        jobs:
+          publish-local-manifest:
+            runs-on: ubuntu-latest
+            steps:
+              - name: Checkout kubectl-safe repository
+                uses: actions/checkout@v5
+                with:
+                  fetch-depth: 0
+              - name: Determine version
+                id: version
+                run: |
+                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                    echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+                  else
+                    echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+                  fi
+              - name: Write Krew plugin manifest locally
+                run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  mkdir -p plugins
+                  cat <<EOF > plugins/safe.yaml
           - selector:
               matchLabels:
                 os: darwin
