@@ -57,3 +57,6 @@ rm "$DIST_DIR/kubectl-safe.exe"
 
 echo "Build and packaging complete! Archives are in the '$DIST_DIR/' directory."
 echo "Version: $VERSION"
+# Copy safe.yaml to plugins directory
+echo "Copying safe.yaml to plugins directory..."
+cp "$DIST_DIR/safe.yaml" "plugins/safe.yaml"
