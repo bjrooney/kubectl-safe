@@ -1,0 +1,81 @@
+# .goreleaser.yml
+
+# This is a vanity setting, but good practice.
+project_name: kubectl-safe
+
+# GoReleaser configuration format version.
+version: 2
+
+# This section tells GoReleaser what to do before building.
+before:
+  hooks:
+      # Tidy modules before building.
+          - go mod tidy
+
+          builds:
+            - # This ID is used to reference this build in other parts of the configuration.
+                id: kubectl-safe
+                    # Path to the main package.
+                        main: ./cmd/kubectl-safe
+                            # The output binary name.
+                                binary: kubectl-safe
+                                    # These flags replicate your LDFLAGS, injecting the version dynamically.
+                                        # The -s and -w flags are best practices to create smaller binaries.
+                                            ldflags:
+                                                  - -s -w -X github.com/bjrooney/kubectl-safe/pkg/safe.Version={{.Version}}
+                                                      # Defines all the OS/Architecture combinations to build for.
+                                                          goos:
+                                                                - linux
+                                                                      - darwin
+                                                                            - windows
+                                                                                goarch:
+                                                                                      - amd64
+                                                                                            - arm64
+                                                                                                # Exclude combinations that don't make sense.
+                                                                                                    ignore:
+                                                                                                          - goos: windows
+                                                                                                                  goarch: arm64
+
+                                                                                                                  # This section defines how the binaries are archived.
+                                                                                                                  # GoReleaser automatically creates .tar.gz for Linux/Darwin and .zip for Windows.
+                                                                                                                  archives:
+                                                                                                                    - # Use the build(s) with this ID.
+                                                                                                                        id: kubectl-safe
+                                                                                                                            # This template creates archive names like 'kubectl-safe-linux-amd64.tar.gz'
+                                                                                                                                name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+                                                                                                                                # This creates a checksums.txt file and signs it.
+                                                                                                                                checksum:
+                                                                                                                                  name_template: "checksums.txt"
+
+                                                                                                                                  # This section configures the GitHub Release creation.
+                                                                                                                                  release:
+                                                                                                                                    # This enables the automatic generation of release notes from commit messages.
+                                                                                                                                      generate_release_notes: true
+                                                                                                                                        # You can customize the release notes header.
+                                                                                                                                          header: |
+                                                                                                                                              ## kubectl-safe {{ .Tag }}
+                                                                                                                                                  ### Installation
+                                                                                                                                                      #### Krew (recommended)
+                                                                                                                                                          ```bash
+                                                                                                                                                              kubectl krew install safe
+                                                                                                                                                                  ```
+                                                                                                                                                                    # And the footer.
+                                                                                                                                                                      footer: |
+                                                                                                                                                                          ### Checksums
+                                                                                                                                                                              See the `checksums.txt` file attached for SHA256 checksums of all binaries.
+
+                                                                                                                                                                              # This section is the most powerful for you.
+                                                                                                                                                                              # It AUTOMATICALLY generates the 'safe.yaml' Krew plugin manifest.
+                                                                                                                                                                              # This completely replaces your sed and checksum.sh steps.
+                                                                                                                                                                              krew:
+                                                                                                                                                                                # The name of the Krew plugin.
+                                                                                                                                                                                  name: safe
+                                                                                                                                                                                    # The name of the generated manifest file.
+                                                                                                                                                                                      short_description: "A kubectl plugin to prevent accidental changes in sensitive environments."
+                                                                                                                                                                                        homepage: "https://github.com/bjrooney/kubectl-safe"
+                                                                                                                                                                                          description: |
+                                                                                                                                                                                              This plugin acts as a safety wrapper around kubectl. It forces you to
+                                                                                                                                                                                                  explicitly provide a --context and --namespace for any command that can
+                                                                                                                                                                                                      modify cluster state, preventing you from accidentally running a command
+                                                                                                                                                                                                          against the wrong cluster or namespace.
