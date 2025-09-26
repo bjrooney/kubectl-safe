@@ -44,6 +44,10 @@ jobs:
         # Windows AMD64
         GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o bin/kubectl-safe-windows-amd64.exe ./cmd/kubectl-safe
         tar -czf kubectl-safe-windows-amd64.tar.gz -C bin kubectl-safe-windows-amd64.exe
+    - name: Move tarballs to dist directory
+      run: |
+        mkdir -p dist
+        mv *.tar.gz dist/
     - name: Update safe.yaml with version
       run: |
         VERSION=$(cat VERSION)
