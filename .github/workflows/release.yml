@@ -43,11 +43,12 @@ jobs:
         tar -czf kubectl-safe-darwin-arm64.tar.gz -C bin kubectl-safe-darwin-arm64
         # Windows AMD64
         GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o bin/kubectl-safe-windows-amd64.exe ./cmd/kubectl-safe
-        tar -czf kubectl-safe-windows-amd64.tar.gz -C bin kubectl-safe-windows-amd64.exe
+        zip -j kubectl-safe-windows-amd64.zip bin/kubectl-safe-windows-amd64.exe
     - name: Move tarballs to dist directory
       run: |
         mkdir -p dist
         mv *.tar.gz dist/
+        mv *.zip dist/
     - name: Update safe.yaml with version
       run: |
         VERSION=$(cat VERSION)
@@ -67,7 +68,7 @@ jobs:
           kubectl-safe-linux-arm64.tar.gz
           kubectl-safe-darwin-amd64.tar.gz
           kubectl-safe-darwin-arm64.tar.gz
-          kubectl-safe-windows-amd64.tar.gz
+          kubectl-safe-windows-amd64.zip
           safe.yaml
         generate_release_notes: true
         body: |
