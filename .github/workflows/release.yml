@@ -49,10 +49,12 @@ jobs:
         VERSION=$(cat VERSION)
         sed -i "s/version: v.*/version: v$VERSION/" safe.yaml
         sed -i "s|download/v.*/kubectl-safe|download/v$VERSION/kubectl-safe|g" safe.yaml
-    - name: Generate checksums
+    - name: Update checksums in safe.yaml
       run: |
-        sha256sum *.tar.gz > checksums.txt
-        echo "Generated checksums:"
+        ./checksum.sh safe.yaml
+    - name: Copy safe.yaml to plugins/safe.yaml
+      run: |
+        cp safe.yaml plugins/safe.yaml
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
