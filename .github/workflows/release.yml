@@ -60,6 +60,17 @@ jobs:
     - name: Copy safe.yaml to plugins/safe.yaml
       run: |
         cp safe.yaml plugins/safe.yaml
+    - name: Commit updated plugins/safe.yaml
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add plugins/safe.yaml
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update plugins/safe.yaml for release v$(cat VERSION)"
+          git push
+        fi
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
