@@ -10,6 +10,19 @@ import (
 	"github.com/fatih/color"
 )
 
+// Solarized color scheme
+var (
+	// Solarized base colors
+	solarizedRed     = color.New(color.FgHiRed).Add(color.Bold)    // #dc322f - for warnings/errors
+	solarizedOrange  = color.New(color.FgHiYellow).Add(color.Bold) // #cb4b16 - for warnings
+	solarizedYellow  = color.New(color.FgYellow)                   // #b58900 - for highlights
+	solarizedGreen   = color.New(color.FgGreen)                    // #859900 - for success/safe
+	solarizedCyan    = color.New(color.FgCyan)                     // #2aa198 - for info/commands
+	solarizedBlue    = color.New(color.FgBlue)                     // #268bd2 - for info
+	solarizedViolet  = color.New(color.FgMagenta)                  // #6c71c4 - for special
+	solarizedMagenta = color.New(color.FgHiMagenta)                // #d33682 - for emphasis
+)
+
 // dangerousCommands lists kubectl commands that require extra safety checks.
 var dangerousCommands = map[string]bool{
 	"delete":  true,
@@ -39,7 +52,8 @@ func askForConfirmation() bool {
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
 	if err != nil {
-		color.Red("ERROR: Failed to read user input: %v", err)
+		solarizedRed.Print("❌ ERROR: ")
+		solarizedOrange.Printf("Failed to read user input: %v\n", err)
 		return false
 	}
 	return strings.ToLower(strings.TrimSpace(response)) == "y"
@@ -114,36 +128,37 @@ func parseContextAndNamespace(args []string) (context, namespace string, context
 
 // printCommandSummary displays the command and context/namespace info to the user.
 func printCommandSummary(allArgs []string, context, namespace string) {
-	color.Red("⚠️  DANGEROUS COMMAND DETECTED ⚠️")
-	color.Red("You are about to run the following command:")
+	solarizedRed.Print("⚠️  DANGEROUS COMMAND DETECTED ⚠️\n")
+	solarizedOrange.Print("You are about to run the following command:\n")
 	fullCommandStr := fmt.Sprintf("kubectl %s", strings.Join(allArgs, " "))
-	cyan := color.New(color.FgCyan)
-	cyan.Printf("  %s\n", fullCommandStr)
-	color.Red("on context ")
-	cyan.Printf("%s", context)
-	color.Red(" in namespace ")
-	cyan.Printf("%s\n", namespace)
+	solarizedCyan.Printf("  %s\n", fullCommandStr)
+	solarizedBlue.Print("on context ")
+	solarizedCyan.Printf("%s", context)
+	solarizedBlue.Print(" in namespace ")
+	solarizedCyan.Printf("%s\n", namespace)
 }
 
 // confirmProductionContext prompts for context name if prod, else y/n confirmation.
 func confirmProductionContext(context string) bool {
 	if strings.Contains(strings.ToLower(context), "prod") {
-		color.Red("WARNING: You are about to run a command on a PRODUCTION context!")
-		fmt.Printf("To proceed, please type the context name ('%s') and press Enter: ", context)
+		solarizedRed.Print("⚠️  WARNING: ")
+		solarizedOrange.Print("You are about to run a command on a PRODUCTION context!\n")
+		solarizedViolet.Printf("To proceed, please type the context name ('%s') and press Enter: ", context)
 		reader := bufio.NewReader(os.Stdin)
 		confirmation, err := reader.ReadString('\n')
 		if err != nil {
-			color.Red("ERROR: Failed to read user input: %v", err)
+			solarizedRed.Print("❌ ERROR: ")
+			solarizedOrange.Printf("Failed to read user input: %v\n", err)
 			return false
 		}
 		if strings.TrimSpace(confirmation) != context {
-			color.Red("Aborted: Context name did not match. Command will not be executed.")
+			solarizedRed.Print("❌ Aborted: ")
+			solarizedOrange.Print("Context name did not match. Command will not be executed.\n")
 			return false
 		}
 		return true
 	} else {
-		yellow := color.New(color.FgYellow)
-		yellow.Print("Do you want to continue? (y/n): ")
+		solarizedYellow.Print("Do you want to continue? (y/n): ")
 		return askForConfirmation()
 	}
 }
@@ -161,7 +176,8 @@ func main() {
 
 	// Check if the command is NOT in our dangerous list.
 	if !dangerousCommands[command] {
-		color.New(color.FgGreen).Printf("--> Safe command detected. Passing directly to kubectl...\n")
+		solarizedGreen.Print("→ Safe command detected. ")
+		solarizedCyan.Println("Passing directly to kubectl...")
 		executeKubectl(allArgs...)
 		return
 	}
@@ -172,30 +188,35 @@ func main() {
 	// Enforce that flags are set for dangerous commands.
 	missingArgs := false
 	if !contextIsSet {
-		color.Red("ERROR: The --context flag is mandatory for the dangerous command '%s'.", command)
+		solarizedRed.Print("❌ ERROR: ")
+		solarizedOrange.Printf("The --context flag is mandatory for the dangerous command '%s'.\n", command)
 		missingArgs = true
 	}
 	if !namespaceIsSet {
-		color.Red("ERROR: The --namespace (-n) flag is mandatory for the dangerous command '%s'.", command)
+		solarizedRed.Print("❌ ERROR: ")
+		solarizedOrange.Printf("The --namespace (-n) flag is mandatory for the dangerous command '%s'.\n", command)
 		missingArgs = true
 	}
 	if missingArgs {
-		color.Red("\nPlease specify the cluster and namespace and try again.")
+		solarizedYellow.Print("\nPlease specify the cluster and namespace and try again.\n")
 		os.Exit(1)
 	}
 
 	// Check if the context exists in kubeconfig before confirmation prompt
 	if !contextExists(foundContext) {
-		color.Red("ERROR: The specified context '%s' does not exist in your kubeconfig.", foundContext)
-		color.Red("Please check your --context value and try again.")
+		solarizedRed.Print("❌ ERROR: ")
+		solarizedOrange.Printf("The specified context '%s' does not exist in your kubeconfig.\n", foundContext)
+		solarizedYellow.Print("Please check your --context value and try again.\n")
 		os.Exit(1)
 	}
 
 	// Check if the namespace exists in the specified context
 	if !namespaceExists(foundContext, foundNamespace) {
-		color.Red("ERROR: The specified namespace '%s' does not exist in context '%s'.", foundNamespace, foundContext)
-		color.Red("Please check your --namespace value and try again.")
-		color.Red("You can list available namespaces with: kubectl get namespaces --context %s", foundContext)
+		solarizedRed.Print("❌ ERROR: ")
+		solarizedOrange.Printf("The specified namespace '%s' does not exist in context '%s'.\n", foundNamespace, foundContext)
+		solarizedYellow.Print("Please check your --namespace value and try again.\n")
+		solarizedBlue.Printf("You can list available namespaces with: ")
+		solarizedCyan.Printf("kubectl get namespaces --context %s\n", foundContext)
 		os.Exit(1)
 	}
 
