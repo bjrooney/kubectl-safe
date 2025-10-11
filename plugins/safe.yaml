@@ -21,27 +21,35 @@ spec:
     For safe commands like get, describe, logs, etc., this plugin acts as a
     transparent pass-through to kubectl without any safety checks.
   platforms:
+  - selector:
       matchLabels:
+        os: linux
+        arch: amd64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.11/kubectl-safe-linux-amd64.tar.gz
     sha256: "6ac0def16cbd66d274322f7e57e2bb8bdd325daa114947768f20a0c2b998faaa"
     bin: kubectl-safe
+  - selector:
       matchLabels:
+        os: linux
         arch: arm64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.11/kubectl-safe-linux-arm64.tar.gz
     sha256: ""
     bin: kubectl-safe
+  - selector:
       matchLabels:
         os: darwin
         arch: amd64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.11/kubectl-safe-darwin-amd64.tar.gz
     sha256: ""
     bin: kubectl-safe
+  - selector:
       matchLabels:
         os: darwin
         arch: arm64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.11/kubectl-safe-darwin-arm64.tar.gz
     sha256: ""
     bin: kubectl-safe
+  - selector:
       matchLabels:
         os: windows
         arch: amd64
