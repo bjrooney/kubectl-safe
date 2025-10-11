@@ -10,6 +10,19 @@ import (
 	"github.com/fatih/color"
 )
 
+// Solarized color palette
+var (
+	// Solarized colors
+	solarizedRed     = color.New(color.FgHiRed)     // #dc322f - for general errors
+	solarizedOrange  = color.New(color.FgHiYellow)  // #cb4b16 - for context validation
+	solarizedYellow  = color.New(color.FgYellow)    // #b58900 - for warnings
+	solarizedGreen   = color.New(color.FgGreen)     // #859900 - for success
+	solarizedCyan    = color.New(color.FgCyan)      // #2aa198 - for info
+	solarizedBlue    = color.New(color.FgBlue)      // #268bd2 - for namespace validation
+	solarizedViolet  = color.New(color.FgMagenta)   // #6c71c4 - for special cases
+	solarizedMagenta = color.New(color.FgHiMagenta) // #d33682 - for highlights
+)
+
 // dangerousCommands lists kubectl commands that require extra safety checks.
 var dangerousCommands = map[string]bool{
 	"delete":  true,
@@ -64,6 +77,25 @@ func contextExists(context string) bool {
 	return false
 }
 
+// getAvailableContexts returns a list of available contexts from kubeconfig
+func getAvailableContexts() []string {
+	cmd := exec.Command("kubectl", "config", "get-contexts", "-o", "name")
+	output, err := cmd.Output()
+	if err != nil {
+		return []string{}
+	}
+
+	var contexts []string
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			contexts = append(contexts, line)
+		}
+	}
+	return contexts
+}
+
 // namespaceExists checks if the given namespace exists in the specified context.
 func namespaceExists(context, namespace string) bool {
 	if namespace == "" || context == "" {
@@ -85,6 +117,59 @@ func namespaceExists(context, namespace string) bool {
 		}
 	}
 	return false
+}
+
+// getAvailableNamespaces returns a list of available namespaces in the specified context
+func getAvailableNamespaces(context string) []string {
+	if context == "" {
+		return []string{}
+	}
+	cmd := exec.Command("kubectl", "get", "namespaces", "-o", "name", "--context", context)
+	output, err := cmd.Output()
+	if err != nil {
+		return []string{}
+	}
+
+	var namespaces []string
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		// Output format is "namespace/namespacename", so we need to extract the name
+		if strings.HasPrefix(line, "namespace/") {
+			nsName := strings.TrimPrefix(line, "namespace/")
+			if nsName != "" {
+				namespaces = append(namespaces, nsName)
+			}
+		}
+	}
+	return namespaces
+}
+
+// colorizeItems returns a string with each item colored using different Solarized colors
+func colorizeItems(items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	// Solarized colors for cycling through items
+	colors := []*color.Color{
+		solarizedGreen,   // #859900
+		solarizedCyan,    // #2aa198
+		solarizedBlue,    // #268bd2
+		solarizedViolet,  // #6c71c4
+		solarizedMagenta, // #d33682
+		solarizedRed,     // #dc322f
+		solarizedOrange,  // #cb4b16
+		solarizedYellow,  // #b58900
+	}
+
+	var colorizedItems []string
+	for i, item := range items {
+		colorIndex := i % len(colors)
+		colorizedItem := colors[colorIndex].Sprint(item)
+		colorizedItems = append(colorizedItems, colorizedItem)
+	}
+
+	return strings.Join(colorizedItems, ", ")
 }
 
 // parseContextAndNamespace extracts context and namespace from kubectl arguments.
@@ -161,7 +246,7 @@ func main() {
 
 	// Check if the command is NOT in our dangerous list.
 	if !dangerousCommands[command] {
-		color.New(color.FgGreen).Printf("--> Safe command detected. Passing directly to kubectl...\n")
+		solarizedGreen.Printf("--> Safe command detected. Passing directly to kubectl...\n")
 		executeKubectl(allArgs...)
 		return
 	}
@@ -172,30 +257,39 @@ func main() {
 	// Enforce that flags are set for dangerous commands.
 	missingArgs := false
 	if !contextIsSet {
-		color.Red("ERROR: The --context flag is mandatory for the dangerous command '%s'.", command)
+		solarizedRed.Printf("ERROR: The --context flag is mandatory for the dangerous command '%s'.\n", command)
 		missingArgs = true
 	}
 	if !namespaceIsSet {
-		color.Red("ERROR: The --namespace (-n) flag is mandatory for the dangerous command '%s'.", command)
+		solarizedRed.Printf("ERROR: The --namespace (-n) flag is mandatory for the dangerous command '%s'.\n", command)
 		missingArgs = true
 	}
 	if missingArgs {
-		color.Red("\nPlease specify the cluster and namespace and try again.")
+		solarizedRed.Printf("\nPlease specify the cluster and namespace and try again.\n")
 		os.Exit(1)
 	}
 
 	// Check if the context exists in kubeconfig before confirmation prompt
 	if !contextExists(foundContext) {
-		color.Red("ERROR: The specified context '%s' does not exist in your kubeconfig.", foundContext)
-		color.Red("Please check your --context value and try again.")
+		availableContexts := getAvailableContexts()
+		solarizedOrange.Printf("WARNING: The specified context '%s' does not exist in your kubeconfig.\n", foundContext)
+		if len(availableContexts) > 0 {
+			solarizedOrange.Printf("Available contexts: ")
+			fmt.Printf("%s\n", colorizeItems(availableContexts))
+		}
+		solarizedOrange.Printf("Please check your --context value and try again.\n")
 		os.Exit(1)
 	}
 
 	// Check if the namespace exists in the specified context
 	if !namespaceExists(foundContext, foundNamespace) {
-		color.Red("ERROR: The specified namespace '%s' does not exist in context '%s'.", foundNamespace, foundContext)
-		color.Red("Please check your --namespace value and try again.")
-		color.Red("You can list available namespaces with: kubectl get namespaces --context %s", foundContext)
+		availableNamespaces := getAvailableNamespaces(foundContext)
+		solarizedOrange.Printf("WARNING: The specified namespace '%s' does not exist in context '%s'.\n", foundNamespace, foundContext)
+		if len(availableNamespaces) > 0 {
+			solarizedOrange.Printf("Available namespaces in context '%s': ", foundContext)
+			fmt.Printf("%s\n", colorizeItems(availableNamespaces))
+		}
+		solarizedOrange.Printf("Please check your --namespace value and try again.\n")
 		os.Exit(1)
 	}
 
@@ -206,6 +300,6 @@ func main() {
 	}
 
 	// If all checks pass, execute the command.
-	color.Cyan("--- All checks passed. Executing command. ---")
+	solarizedCyan.Printf("--- All checks passed. Executing command. ---\n")
 	executeKubectl(allArgs...)
 }

@@ -11,6 +11,19 @@ import (
 	"github.com/fatih/color"
 )
 
+// Solarized color palette
+var (
+	// Solarized colors
+	solarizedRed     = color.New(color.FgHiRed)     // #dc322f - for general errors and dangerous warnings
+	solarizedOrange  = color.New(color.FgHiYellow)  // #cb4b16 - for context validation
+	solarizedYellow  = color.New(color.FgYellow)    // #b58900 - for warnings
+	solarizedGreen   = color.New(color.FgGreen)     // #859900 - for success
+	solarizedCyan    = color.New(color.FgCyan)      // #2aa198 - for info
+	solarizedBlue    = color.New(color.FgBlue)      // #268bd2 - for namespace validation
+	solarizedViolet  = color.New(color.FgMagenta)   // #6c71c4 - for special cases
+	solarizedMagenta = color.New(color.FgHiMagenta) // #d33682 - for highlights
+)
+
 // Version will be set at build time
 var Version = "dev"
 
@@ -122,8 +135,9 @@ func validateRequiredFlags(args []string) error {
 		}
 
 		if !slices.Contains(availableContexts, contextValue) {
-			return fmt.Errorf("context '%s' not found in kubeconfig. Available contexts: %s",
-				contextValue, strings.Join(availableContexts, ", "))
+			colorizedContexts := colorizeItems(availableContexts)
+			return fmt.Errorf("WARNING: context '%s' not found in kubeconfig. Available contexts: %s",
+				contextValue, colorizedContexts)
 		}
 	}
 
@@ -137,8 +151,9 @@ func validateRequiredFlags(args []string) error {
 			}
 
 			if !slices.Contains(availableNamespaces, namespaceValue) {
-				return fmt.Errorf("namespace '%s' not found in context '%s'. Available namespaces: %s",
-					namespaceValue, contextValue, strings.Join(availableNamespaces, ", "))
+				colorizedNamespaces := colorizeItems(availableNamespaces)
+				return fmt.Errorf("WARNING: namespace '%s' not found in context '%s'. Available namespaces: %s",
+					namespaceValue, contextValue, colorizedNamespaces)
 			}
 		}
 	}
@@ -148,19 +163,19 @@ func validateRequiredFlags(args []string) error {
 
 // showConfirmation displays an interactive prompt for dangerous commands
 func showConfirmation(args []string) error {
-	color.Red("⚠️  DANGEROUS COMMAND DETECTED ⚠️\n\n")
-	color.Red("You are about to execute: kubectl %s\n\n", strings.Join(args, " "))
+	solarizedRed.Printf("⚠️  DANGEROUS COMMAND DETECTED ⚠️\n\n")
+	solarizedRed.Printf("You are about to execute: kubectl %s\n\n", strings.Join(args, " "))
 
 	// Extract context and namespace for display
 	context := extractFlagValue(args, "--context", "-c")
 	namespace := extractFlagValue(args, "--namespace", "-n")
 
-	color.Red("Target Details:\n")
-	color.Red("  Context:   %s\n", context)
-	color.Red("  Namespace: %s\n\n", namespace)
+	solarizedRed.Printf("Target Details:\n")
+	solarizedRed.Printf("  Context:   %s\n", context)
+	solarizedRed.Printf("  Namespace: %s\n\n", namespace)
 
-	color.Red("This operation may cause data loss or service disruption.\n")
-	color.Red("Are you sure you want to continue? (yes/no): ")
+	solarizedRed.Printf("This operation may cause data loss or service disruption.\n")
+	solarizedYellow.Printf("Are you sure you want to continue? (yes/no): ")
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
@@ -170,11 +185,11 @@ func showConfirmation(args []string) error {
 
 	response = strings.TrimSpace(strings.ToLower(response))
 	if response != "yes" && response != "y" {
-		color.Red("Operation cancelled.")
+		solarizedYellow.Printf("Operation cancelled.\n")
 		return fmt.Errorf("operation cancelled by user")
 	}
 
-	fmt.Println("Proceeding with operation...")
+	solarizedGreen.Printf("Proceeding with operation...\n")
 	return nil
 }
 
@@ -262,6 +277,34 @@ func getNamespacesInContext(context string) ([]string, error) {
 	}
 
 	return namespaces, nil
+}
+
+// colorizeItems returns a string with each item colored using different Solarized colors
+func colorizeItems(items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	// Solarized colors for cycling through items
+	colors := []*color.Color{
+		solarizedGreen,   // #859900
+		solarizedCyan,    // #2aa198
+		solarizedBlue,    // #268bd2
+		solarizedViolet,  // #6c71c4
+		solarizedMagenta, // #d33682
+		solarizedRed,     // #dc322f
+		solarizedOrange,  // #cb4b16
+		solarizedYellow,  // #b58900
+	}
+
+	var colorizedItems []string
+	for i, item := range items {
+		colorIndex := i % len(colors)
+		colorizedItem := colors[colorIndex].Sprint(item)
+		colorizedItems = append(colorizedItems, colorizedItem)
+	}
+
+	return strings.Join(colorizedItems, ", ")
 }
 
 // showUsage displays help information
