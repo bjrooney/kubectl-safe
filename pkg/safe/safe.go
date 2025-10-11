@@ -230,6 +230,30 @@ func showConfirmation(args []string) error {
 	solarizedBlue.Print("  Namespace: ")
 	solarizedCyan.Printf("%s\n\n", namespace)
 
+	// Check if this is a production context
+	if strings.Contains(strings.ToLower(context), "prod") {
+		solarizedRed.Print("🚨 PRODUCTION CONTEXT WARNING! 🚨\n")
+		solarizedOrange.Print("You are about to run a command on a PRODUCTION context!\n\n")
+		solarizedViolet.Printf("To proceed, please type the context name ('%s') and press Enter: ", context)
+
+		reader := bufio.NewReader(os.Stdin)
+		confirmation, err := reader.ReadString('\n')
+		if err != nil {
+			solarizedRed.Print("❌ ERROR: ")
+			solarizedOrange.Printf("Failed to read user input: %v\n", err)
+			return fmt.Errorf("failed to read user input: %w", err)
+		}
+
+		if strings.TrimSpace(confirmation) != context {
+			solarizedRed.Print("❌ Aborted: ")
+			solarizedOrange.Print("Context name did not match. Command will not be executed.\n")
+			return fmt.Errorf("operation cancelled by user")
+		}
+
+		solarizedGreen.Println("Production context confirmed. Proceeding with operation...")
+		return nil
+	}
+
 	solarizedYellow.Print("This operation may cause data loss or service disruption.\n")
 	solarizedViolet.Print("Are you sure you want to continue? (yes/no): ")
 
