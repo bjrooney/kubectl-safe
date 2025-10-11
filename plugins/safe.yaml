@@ -53,6 +53,6 @@ spec:
       matchLabels:
         os: windows
         arch: amd64
-    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-windows-amd64.tar.gz
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.1.0/kubectl-safe-windows-amd64.zip
     sha256: ""
     bin: kubectl-safe.exe
