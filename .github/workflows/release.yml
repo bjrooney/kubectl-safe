@@ -28,27 +28,27 @@ jobs:
       run: |
         VERSION=$(cat VERSION)
         LDFLAGS="-X github.com/bjrooney/kubectl-safe/pkg/safe.Version=$VERSION"
-        mkdir -p bin
-        # Linux AMD64
-        GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o bin/kubectl-safe-linux-amd64 ./cmd/kubectl-safe
-        tar -czf kubectl-safe-linux-amd64.tar.gz -C bin kubectl-safe-linux-amd64
-        # Linux ARM64
-        GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o bin/kubectl-safe-linux-arm64 ./cmd/kubectl-safe
-        tar -czf kubectl-safe-linux-arm64.tar.gz -C bin kubectl-safe-linux-arm64
-        # Darwin AMD64
-        GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o bin/kubectl-safe-darwin-amd64 ./cmd/kubectl-safe
-        tar -czf kubectl-safe-darwin-amd64.tar.gz -C bin kubectl-safe-darwin-amd64
-        # Darwin ARM64
-        GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o bin/kubectl-safe-darwin-arm64 ./cmd/kubectl-safe
-        tar -czf kubectl-safe-darwin-arm64.tar.gz -C bin kubectl-safe-darwin-arm64
-        # Windows AMD64
-        GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o bin/kubectl-safe-windows-amd64.exe ./cmd/kubectl-safe
-        zip -j kubectl-safe-windows-amd64.zip bin/kubectl-safe-windows-amd64.exe
-    - name: Move tarballs to dist directory
-      run: |
         mkdir -p dist
-        mv *.tar.gz dist/
-        mv *.zip dist/
+        # Linux AMD64
+        GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/kubectl-safe ./cmd/kubectl-safe
+        tar -czf dist/kubectl-safe-linux-amd64.tar.gz -C dist kubectl-safe
+        rm dist/kubectl-safe
+        # Linux ARM64
+        GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/kubectl-safe ./cmd/kubectl-safe
+        tar -czf dist/kubectl-safe-linux-arm64.tar.gz -C dist kubectl-safe
+        rm dist/kubectl-safe
+        # Darwin AMD64
+        GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/kubectl-safe ./cmd/kubectl-safe
+        tar -czf dist/kubectl-safe-darwin-amd64.tar.gz -C dist kubectl-safe
+        rm dist/kubectl-safe
+        # Darwin ARM64
+        GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/kubectl-safe ./cmd/kubectl-safe
+        tar -czf dist/kubectl-safe-darwin-arm64.tar.gz -C dist kubectl-safe
+        rm dist/kubectl-safe
+        # Windows AMD64
+        GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/kubectl-safe.exe ./cmd/kubectl-safe
+        zip -j dist/kubectl-safe-windows-amd64.zip dist/kubectl-safe.exe
+        rm dist/kubectl-safe.exe
     - name: Update safe.yaml with version
       run: |
         VERSION=$(cat VERSION)
@@ -64,11 +64,11 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          kubectl-safe-linux-amd64.tar.gz
-          kubectl-safe-linux-arm64.tar.gz
-          kubectl-safe-darwin-amd64.tar.gz
-          kubectl-safe-darwin-arm64.tar.gz
-          kubectl-safe-windows-amd64.zip
+          dist/kubectl-safe-linux-amd64.tar.gz
+          dist/kubectl-safe-linux-arm64.tar.gz
+          dist/kubectl-safe-darwin-amd64.tar.gz
+          dist/kubectl-safe-darwin-arm64.tar.gz
+          dist/kubectl-safe-windows-amd64.zip
           safe.yaml
         generate_release_notes: true
         body: |
