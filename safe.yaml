@@ -21,36 +21,45 @@ spec:
     For safe commands like get, describe, logs, etc., this plugin acts as a
     transparent pass-through to kubectl without any safety checks.
   platforms:
+  - selector:
       matchLabels:
+        os: linux
+        arch: amd64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.16/kubectl-safe-linux-amd64.tar.gz
-    sha256: "7983858a24e4b4c3a8be3736d66a1b8473ee37b9c05383a9f21c80734f305677"
+    sha256: "b2f749590a13ae5f547a9fed58759ba41b8dd1d49e002b8bf048f98c09590dd8"
     bin: kubectl-safe
+  - selector:
       matchLabels:
+        os: linux
         arch: arm64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.16/kubectl-safe-linux-arm64.tar.gz
-    sha256: ""
+    sha256: "f8ca9aeda67109b54c4bdcb65ad87a0bda4b140ff5b502318fb0e0f6909b9cc3"
     bin: kubectl-safe
+  - selector:
       matchLabels:
         os: darwin
         arch: amd64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.16/kubectl-safe-darwin-amd64.tar.gz
-    sha256: ""
+    sha256: "ccc17c03fdae0412b8b6a44bdccba6628de776e9fa8f674dd5f83fa0fad30da1"
     bin: kubectl-safe
+  - selector:
       matchLabels:
         os: darwin
         arch: arm64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.16/kubectl-safe-darwin-arm64.tar.gz
-    sha256: ""
+    sha256: "30e90c617089287c69e0515bbd547e714077a30a4f258c363a89ab1fe043b56a"
     bin: kubectl-safe
+  - selector:
       matchLabels:
         os: windows
         arch: amd64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.16/kubectl-safe-windows-amd64.zip
-    sha256: ""
+    sha256: "bb65faedef9212f823dd7fd3afbd2806b42c8f777859698110ef9e2f593199e8"
     bin: kubectl-safe.exe
+  - selector:
       matchLabels:
         os: windows
         arch: arm64
     uri: https://github.com/bjrooney/kubectl-safe/releases/download/v0.6.16/kubectl-safe-windows-arm64.zip
-    sha256: ""
+    sha256: "b9522dbf8ad49ca47469f87ef5831e643b05b77f995293b1f43639d68b99829e"
     bin: kubectl-safe.exe

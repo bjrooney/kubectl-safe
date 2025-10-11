@@ -31,9 +31,21 @@ update_sha256_in_yaml() {
     # Use awk to find and update the sha256 for the specific platform
     awk -v os="$platform" -v arch="$arch" -v sha="$checksum" '
     BEGIN { in_platform = 0; found_os = 0; found_arch = 0 }
-    /- selector:/ { in_platform = 1; found_os = 0; found_arch = 0; next }
-    in_platform && /os: / && $2 == os { found_os = 1; next }
-    in_platform && /arch: / && $2 == arch && found_os { found_arch = 1; next }
+    /- selector:/ { 
+        in_platform = 1; found_os = 0; found_arch = 0
+        print
+        next
+    }
+    in_platform && /os: / && $2 == os { 
+        found_os = 1
+        print
+        next
+    }
+    in_platform && /arch: / && $2 == arch && found_os { 
+        found_arch = 1
+        print
+        next
+    }
     in_platform && /sha256:/ && found_os && found_arch { 
         print "    sha256: \"" sha "\""
         in_platform = 0
@@ -41,7 +53,11 @@ update_sha256_in_yaml() {
         found_arch = 0
         next 
     }
-    /- selector:/ && in_platform { in_platform = 0; found_os = 0; found_arch = 0 }
+    /- selector:/ && in_platform { 
+        in_platform = 0; found_os = 0; found_arch = 0
+        print
+        next
+    }
     { print }
     ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
 }
