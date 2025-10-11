@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// Version will be set at build time via ldflags
+// Version will be set at build time
 var Version = "dev"
 
 // DangerousCommands are kubectl commands that can cause data loss or service disruption
@@ -125,6 +125,22 @@ func validateRequiredFlags(args []string) error {
 		}
 	}
 
+	// Validate that the provided namespace exists in the specified context
+	if hasNamespace && hasContext && contextValue != "" && contextValue != "<not specified>" {
+		namespaceValue := extractFlagValue(args, "--namespace", "-n")
+		if namespaceValue != "" && namespaceValue != "<not specified>" {
+			availableNamespaces, err := getNamespacesInContext(contextValue)
+			if err != nil {
+				return fmt.Errorf("failed to get available namespaces for context '%s': %w", contextValue, err)
+			}
+
+			if !slices.Contains(availableNamespaces, namespaceValue) {
+				return fmt.Errorf("namespace '%s' not found in context '%s'. Available namespaces: %s", 
+					namespaceValue, contextValue, strings.Join(availableNamespaces, ", "))
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -213,6 +229,37 @@ func getKubeconfigContexts() ([]string, error) {
 	}
 	
 	return validContexts, nil
+}
+
+// getNamespacesInContext returns the list of available namespaces in the given context
+func getNamespacesInContext(context string) ([]string, error) {
+	cmd := exec.Command("kubectl", "get", "namespaces", "--output=name", "--context", context)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get namespaces for context '%s': %w", context, err)
+	}
+
+	outputStr := strings.TrimSpace(string(output))
+	if outputStr == "" {
+		// No namespaces available - return empty slice
+		return []string{}, nil
+	}
+
+	namespaceLines := strings.Split(outputStr, "\n")
+	
+	// Extract namespace names from the "namespace/name" format
+	var namespaces []string
+	for _, line := range namespaceLines {
+		line = strings.TrimSpace(line)
+		if line != "" && strings.HasPrefix(line, "namespace/") {
+			nsName := strings.TrimPrefix(line, "namespace/")
+			if nsName != "" {
+				namespaces = append(namespaces, nsName)
+			}
+		}
+	}
+	
+	return namespaces, nil
 }
 
 // showUsage displays help information

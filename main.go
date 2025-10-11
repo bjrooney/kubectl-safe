@@ -64,6 +64,29 @@ func contextExists(context string) bool {
 	return false
 }
 
+// namespaceExists checks if the given namespace exists in the specified context.
+func namespaceExists(context, namespace string) bool {
+	if namespace == "" || context == "" {
+		return false
+	}
+	cmd := exec.Command("kubectl", "get", "namespaces", "-o", "name", "--context", context)
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	namespaces := strings.Split(string(output), "\n")
+	for _, ns := range namespaces {
+		// Output format is "namespace/namespacename", so we need to extract the name
+		if strings.HasPrefix(ns, "namespace/") {
+			nsName := strings.TrimPrefix(ns, "namespace/")
+			if nsName == namespace {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // parseContextAndNamespace extracts context and namespace from kubectl arguments.
 func parseContextAndNamespace(args []string) (context, namespace string, contextIsSet, namespaceIsSet bool) {
 	for i := 0; i < len(args); i++ {
@@ -165,6 +188,14 @@ func main() {
 	if !contextExists(foundContext) {
 		color.Red("ERROR: The specified context '%s' does not exist in your kubeconfig.", foundContext)
 		fmt.Println("Please check your --context value and try again.")
+		os.Exit(1)
+	}
+
+	// Check if the namespace exists in the specified context
+	if !namespaceExists(foundContext, foundNamespace) {
+		color.Red("ERROR: The specified namespace '%s' does not exist in context '%s'.", foundNamespace, foundContext)
+		fmt.Println("Please check your --namespace value and try again.")
+		fmt.Println("You can list available namespaces with: kubectl get namespaces --context", foundContext)
 		os.Exit(1)
 	}
 
