@@ -24,6 +24,20 @@ var (
 	solarizedMagenta = color.New(color.FgHiMagenta)                // #d33682 - for emphasis
 )
 
+// printColoredList prints a list of items with alternating Solarized colors
+func printColoredList(items []string) {
+	colors := []*color.Color{solarizedCyan, solarizedGreen, solarizedYellow, solarizedViolet, solarizedBlue, solarizedMagenta}
+
+	for i, item := range items {
+		colorIndex := i % len(colors)
+		if i > 0 {
+			fmt.Print(", ")
+		}
+		colors[colorIndex].Print(item)
+	}
+	fmt.Print("\n")
+}
+
 // Version will be set at build time
 var Version = "dev"
 
@@ -130,7 +144,7 @@ func validateRequiredFlags(args []string) error {
 		solarizedRed.Print("❌ ERROR: ")
 		solarizedOrange.Printf("Dangerous command requires explicit %s flag(s).\n", strings.Join(missing, " and "))
 		solarizedYellow.Print("This ensures you're targeting the correct cluster and namespace.\n")
-		return fmt.Errorf("dangerous command requires explicit %s flag(s). This ensures you're targeting the correct cluster and namespace", strings.Join(missing, " and "))
+		os.Exit(1)
 	}
 
 	// Validate that the provided context exists in kubeconfig
@@ -139,16 +153,15 @@ func validateRequiredFlags(args []string) error {
 		if err != nil {
 			solarizedRed.Print("❌ ERROR: ")
 			solarizedOrange.Printf("Failed to get available contexts from kubeconfig: %v\n", err)
-			return fmt.Errorf("failed to get available contexts from kubeconfig: %w", err)
+			os.Exit(1)
 		}
 
 		if !slices.Contains(availableContexts, contextValue) {
-			solarizedRed.Print("❌ ERROR: ")
+			solarizedYellow.Print("✋ WARNING: ")
 			solarizedOrange.Printf("Context '%s' not found in kubeconfig.\n", contextValue)
 			solarizedBlue.Print("Available contexts: ")
-			solarizedCyan.Printf("%s\n", strings.Join(availableContexts, ", "))
-			return fmt.Errorf("context '%s' not found in kubeconfig. Available contexts: %s",
-				contextValue, strings.Join(availableContexts, ", "))
+			printColoredList(availableContexts)
+			os.Exit(1)
 		}
 	}
 
@@ -160,16 +173,15 @@ func validateRequiredFlags(args []string) error {
 			if err != nil {
 				solarizedRed.Print("❌ ERROR: ")
 				solarizedOrange.Printf("Failed to get available namespaces for context '%s': %v\n", contextValue, err)
-				return fmt.Errorf("failed to get available namespaces for context '%s': %w", contextValue, err)
+				os.Exit(1)
 			}
 
 			if !slices.Contains(availableNamespaces, namespaceValue) {
-				solarizedRed.Print("❌ ERROR: ")
+				solarizedYellow.Print("✋ WARNING: ")
 				solarizedOrange.Printf("Namespace '%s' not found in context '%s'.\n", namespaceValue, contextValue)
 				solarizedBlue.Print("Available namespaces: ")
-				solarizedCyan.Printf("%s\n", strings.Join(availableNamespaces, ", "))
-				return fmt.Errorf("namespace '%s' not found in context '%s'. Available namespaces: %s",
-					namespaceValue, contextValue, strings.Join(availableNamespaces, ", "))
+				printColoredList(availableNamespaces)
+				os.Exit(1)
 			}
 		}
 	}

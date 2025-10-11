@@ -204,7 +204,7 @@ func main() {
 
 	// Check if the context exists in kubeconfig before confirmation prompt
 	if !contextExists(foundContext) {
-		solarizedRed.Print("❌ ERROR: ")
+		solarizedYellow.Print("✋ WARNING: ")
 		solarizedOrange.Printf("The specified context '%s' does not exist in your kubeconfig.\n", foundContext)
 		solarizedYellow.Print("Please check your --context value and try again.\n")
 		os.Exit(1)
@@ -212,7 +212,7 @@ func main() {
 
 	// Check if the namespace exists in the specified context
 	if !namespaceExists(foundContext, foundNamespace) {
-		solarizedRed.Print("❌ ERROR: ")
+		solarizedYellow.Print("✋ WARNING: ")
 		solarizedOrange.Printf("The specified namespace '%s' does not exist in context '%s'.\n", foundNamespace, foundContext)
 		solarizedYellow.Print("Please check your --namespace value and try again.\n")
 		solarizedBlue.Printf("You can list available namespaces with: ")
