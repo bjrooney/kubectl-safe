@@ -82,7 +82,8 @@ func Execute() error {
 
 	// For dangerous commands, enforce safety checks
 	if err := validateRequiredFlags(args); err != nil {
-		return err
+		handleValidationError(err)
+		return err // This won't be reached due to os.Exit(1) in handleValidationError
 	}
 
 	// Show interactive confirmation
@@ -141,27 +142,19 @@ func validateRequiredFlags(args []string) error {
 	}
 
 	if len(missing) > 0 {
-		solarizedRed.Print("❌ ERROR: ")
-		solarizedOrange.Printf("Dangerous command requires explicit %s flag(s).\n", strings.Join(missing, " and "))
-		solarizedYellow.Print("This ensures you're targeting the correct cluster and namespace.\n")
-		os.Exit(1)
+		return fmt.Errorf("dangerous command requires explicit %s flag(s). This ensures you're targeting the correct cluster and namespace", strings.Join(missing, " and "))
 	}
 
 	// Validate that the provided context exists in kubeconfig
 	if hasContext && contextValue != "" && contextValue != "<not specified>" {
 		availableContexts, err := getKubeconfigContexts()
 		if err != nil {
-			solarizedRed.Print("❌ ERROR: ")
-			solarizedOrange.Printf("Failed to get available contexts from kubeconfig: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to get available contexts from kubeconfig: %w", err)
 		}
 
 		if !slices.Contains(availableContexts, contextValue) {
-			solarizedYellow.Print("✋ WARNING: ")
-			solarizedOrange.Printf("Context '%s' not found in kubeconfig.\n", contextValue)
-			solarizedBlue.Print("Available contexts: ")
-			printColoredList(availableContexts)
-			os.Exit(1)
+			return fmt.Errorf("context '%s' not found in kubeconfig. Available contexts: %s",
+				contextValue, strings.Join(availableContexts, ", "))
 		}
 	}
 
@@ -171,22 +164,54 @@ func validateRequiredFlags(args []string) error {
 		if namespaceValue != "" && namespaceValue != "<not specified>" {
 			availableNamespaces, err := getNamespacesInContext(contextValue)
 			if err != nil {
-				solarizedRed.Print("❌ ERROR: ")
-				solarizedOrange.Printf("Failed to get available namespaces for context '%s': %v\n", contextValue, err)
-				os.Exit(1)
+				return fmt.Errorf("failed to get available namespaces for context '%s': %w", contextValue, err)
 			}
 
 			if !slices.Contains(availableNamespaces, namespaceValue) {
-				solarizedYellow.Print("✋ WARNING: ")
-				solarizedOrange.Printf("Namespace '%s' not found in context '%s'.\n", namespaceValue, contextValue)
-				solarizedBlue.Print("Available namespaces: ")
-				printColoredList(availableNamespaces)
-				os.Exit(1)
+				return fmt.Errorf("namespace '%s' not found in context '%s'. Available namespaces: %s",
+					namespaceValue, contextValue, strings.Join(availableNamespaces, ", "))
 			}
 		}
 	}
 
 	return nil
+}
+
+// handleValidationError displays appropriate colored error messages and exits
+func handleValidationError(err error) {
+	errMsg := err.Error()
+
+	if strings.Contains(errMsg, "requires explicit") {
+		solarizedRed.Print("❌ ERROR: ")
+		solarizedOrange.Print("Dangerous command requires explicit flags.\n")
+		solarizedYellow.Print("This ensures you're targeting the correct cluster and namespace.\n")
+	} else if strings.Contains(errMsg, "not found in kubeconfig") {
+		parts := strings.Split(errMsg, ". Available contexts: ")
+		if len(parts) == 2 {
+			solarizedYellow.Print("✋ WARNING: ")
+			contextPart := strings.Replace(parts[0], "context '", "", 1)
+			contextPart = strings.Replace(contextPart, "' not found in kubeconfig", "", 1)
+			solarizedOrange.Printf("Context '%s' not found in kubeconfig.\n", contextPart)
+			solarizedBlue.Print("Available contexts: ")
+			availableContexts := strings.Split(parts[1], ", ")
+			printColoredList(availableContexts)
+		}
+	} else if strings.Contains(errMsg, "not found in context") {
+		parts := strings.Split(errMsg, ". Available namespaces: ")
+		if len(parts) == 2 {
+			solarizedYellow.Print("✋ WARNING: ")
+			solarizedOrange.Print(parts[0] + ".\n")
+			solarizedBlue.Print("Available namespaces: ")
+			availableNamespaces := strings.Split(parts[1], ", ")
+			printColoredList(availableNamespaces)
+		}
+	} else {
+		// For other errors (kubeconfig access issues, etc.)
+		solarizedRed.Print("❌ ERROR: ")
+		solarizedOrange.Printf("%s\n", errMsg)
+	}
+
+	os.Exit(1)
 }
 
 // showConfirmation displays an interactive prompt for dangerous commands
