@@ -53,6 +53,7 @@ BINARIES["kubectl-safe-linux-arm64.tar.gz"]="linux arm64"
 BINARIES["kubectl-safe-darwin-amd64.tar.gz"]="darwin amd64"
 BINARIES["kubectl-safe-darwin-arm64.tar.gz"]="darwin arm64"
 BINARIES["kubectl-safe-windows-amd64.zip"]="windows amd64"
+BINARIES["kubectl-safe-windows-arm64.zip"]="windows arm64"
 
 # Loop through each binary in our list.
 for binary in "${!BINARIES[@]}"; do

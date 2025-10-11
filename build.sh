@@ -55,6 +55,13 @@ echo "Packaging for Windows (amd64)..."
 zip -j "$DIST_DIR/kubectl-safe-windows-amd64.zip" "$DIST_DIR/kubectl-safe.exe"
 rm "$DIST_DIR/kubectl-safe.exe"
 
+# --- Build and Package for Windows ARM64 ---
+echo "Building for Windows (arm64)..."
+GOOS=windows GOARCH=arm64 go build -ldflags "$LDFLAGS" -o "$DIST_DIR/kubectl-safe.exe" ./cmd/kubectl-safe
+echo "Packaging for Windows (arm64)..."
+zip -j "$DIST_DIR/kubectl-safe-windows-arm64.zip" "$DIST_DIR/kubectl-safe.exe"
+rm "$DIST_DIR/kubectl-safe.exe"
+
 echo "Build and packaging complete! Archives are in the '$DIST_DIR/' directory."
 echo "Version: $VERSION"
 # Copy safe.yaml to plugins directory
