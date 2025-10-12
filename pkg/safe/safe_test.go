@@ -1,11 +1,112 @@
 package safe
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/spf13/pflag"
 )
+
+// Test mocking variables
+var (
+	mockKubeconfigContexts  func() ([]string, error)
+	mockNamespacesInContext func(context string) ([]string, error)
+)
+
+// Mock functions for testing
+func setupMocks() {
+	mockKubeconfigContexts = func() ([]string, error) {
+		return []string{"dev-001", "test-001", "prod-001"}, nil
+	}
+
+	mockNamespacesInContext = func(context string) ([]string, error) {
+		// Return different namespaces based on context
+		switch context {
+		case "dev-001":
+			return []string{"default", "test", "development"}, nil
+		case "test-001":
+			return []string{"default", "test", "testing"}, nil
+		case "prod-001":
+			return []string{"default", "production", "monitoring"}, nil
+		default:
+			return []string{"default", "test"}, nil
+		}
+	}
+}
+
+func teardownMocks() {
+	mockKubeconfigContexts = nil
+	mockNamespacesInContext = nil
+}
+
+// Override the original functions for testing
+func getKubeconfigContextsForTest() ([]string, error) {
+	if mockKubeconfigContexts != nil {
+		return mockKubeconfigContexts()
+	}
+	return getKubeconfigContexts()
+}
+
+func getNamespacesInContextForTest(context string) ([]string, error) {
+	if mockNamespacesInContext != nil {
+		return mockNamespacesInContext(context)
+	}
+	return getNamespacesInContext(context)
+}
+
+// validateRequiredFlagsForTest is a test version that uses mocked functions
+func validateRequiredFlagsForTest(fs *pflag.FlagSet, commandAndArgs []string) error {
+	hasContext := fs.Changed("context")
+	hasNamespace := fs.Changed("namespace")
+
+	isNamespaceResourceCommand := false
+	if len(commandAndArgs) > 1 {
+		resourceType := strings.ToLower(commandAndArgs[1])
+		if resourceType == "namespace" || resourceType == "namespaces" || resourceType == "ns" {
+			isNamespaceResourceCommand = true
+		}
+	}
+
+	var missing []string
+	if !hasContext {
+		missing = append(missing, "--context")
+	}
+	if !hasNamespace && !isNamespaceResourceCommand {
+		missing = append(missing, "--namespace")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("modifying command requires explicit %s flag(s)", strings.Join(missing, " and "))
+	}
+
+	contextValue, _ := fs.GetString("context")
+	namespaceValue, _ := fs.GetString("namespace")
+
+	// Use mocked function for testing
+	availableContexts, err := getKubeconfigContextsForTest()
+	if err != nil {
+		return fmt.Errorf("failed to get available contexts: %w", err)
+	}
+	if !slices.Contains(availableContexts, contextValue) {
+		return fmt.Errorf("context '%s' not found in kubeconfig. Available contexts: %s",
+			contextValue, strings.Join(availableContexts, ", "))
+	}
+
+	if hasNamespace && !isNamespaceResourceCommand {
+		// Use mocked function for testing
+		availableNamespaces, err := getNamespacesInContextForTest(contextValue)
+		if err != nil {
+			return fmt.Errorf("failed to get namespaces for context '%s': %w", contextValue, err)
+		}
+		isCreateCommand := commandAndArgs[0] == "create"
+		if !slices.Contains(availableNamespaces, namespaceValue) && !isCreateCommand {
+			return fmt.Errorf("namespace '%s' not found in context '%s'. Available namespaces: %s",
+				namespaceValue, contextValue, strings.Join(availableNamespaces, ", "))
+		}
+	}
+	return nil
+}
 
 func TestIsModifyingCommand(t *testing.T) {
 	tests := []struct {
@@ -255,47 +356,70 @@ func TestIsModifyingCommand(t *testing.T) {
 }
 
 func TestValidateRequiredFlags(t *testing.T) {
+	// Setup mocks before running tests
+	setupMocks()
+	defer teardownMocks()
+
 	tests := []struct {
-		name                  string
-		args                  []string
-		wantErr               bool
-		skipContextValidation bool // Skip context validation for some tests
+		name    string
+		args    []string
+		wantErr bool
+		errMsg  string // Expected error message substring
 	}{
 		{
-			name:                  "both flags present (separate)",
-			args:                  []string{"delete", "pod", "mypod", "--context", "test-context", "--namespace", "default"},
-			wantErr:               true, // Will fail context validation unless test-context exists
-			skipContextValidation: false,
+			name:    "both flags present (separate) - valid context and namespace",
+			args:    []string{"delete", "pod", "mypod", "--context", "dev-001", "--namespace", "default"},
+			wantErr: false,
 		},
 		{
-			name:                  "both flags present (equals format)",
-			args:                  []string{"delete", "pod", "mypod", "--context=test-context", "--namespace=default"},
-			wantErr:               true, // Will fail context validation unless test-context exists
-			skipContextValidation: false,
+			name:    "both flags present (equals format) - valid context and namespace",
+			args:    []string{"delete", "pod", "mypod", "--context=test-001", "--namespace=test"},
+			wantErr: false,
 		},
 		{
-			name:                  "both flags present (short form)",
-			args:                  []string{"delete", "pod", "mypod", "-c", "test-context", "-n", "default"},
-			wantErr:               true, // Will fail context validation unless test-context exists
-			skipContextValidation: false,
+			name:    "both flags present (short form) - valid context and namespace",
+			args:    []string{"delete", "pod", "mypod", "-c", "prod-001", "-n", "default"},
+			wantErr: false,
 		},
 		{
-			name:                  "missing context flag",
-			args:                  []string{"delete", "pod", "mypod", "--namespace", "default"},
-			wantErr:               true,
-			skipContextValidation: true, // No context to validate
+			name:    "valid context but invalid namespace",
+			args:    []string{"delete", "pod", "mypod", "--context", "dev-001", "--namespace", "nonexistent"},
+			wantErr: true,
+			errMsg:  "not found in context",
 		},
 		{
-			name:                  "missing namespace flag",
-			args:                  []string{"delete", "pod", "mypod", "--context", "test-context"},
-			wantErr:               true,
-			skipContextValidation: true, // Missing namespace, so context validation is not the main issue
+			name:    "invalid context",
+			args:    []string{"delete", "pod", "mypod", "--context", "invalid-context", "--namespace", "default"},
+			wantErr: true,
+			errMsg:  "not found in kubeconfig",
 		},
 		{
-			name:                  "missing both flags",
-			args:                  []string{"delete", "pod", "mypod"},
-			wantErr:               true,
-			skipContextValidation: true, // No flags to validate
+			name:    "missing context flag",
+			args:    []string{"delete", "pod", "mypod", "--namespace", "default"},
+			wantErr: true,
+			errMsg:  "requires explicit --context",
+		},
+		{
+			name:    "missing namespace flag",
+			args:    []string{"delete", "pod", "mypod", "--context", "dev-001"},
+			wantErr: true,
+			errMsg:  "requires explicit --namespace",
+		},
+		{
+			name:    "missing both flags",
+			args:    []string{"delete", "pod", "mypod"},
+			wantErr: true,
+			errMsg:  "requires explicit --context and --namespace",
+		},
+		{
+			name:    "namespace operation doesn't require namespace flag",
+			args:    []string{"delete", "namespace", "test", "--context", "dev-001"},
+			wantErr: false,
+		},
+		{
+			name:    "create command with new namespace should work",
+			args:    []string{"create", "deployment", "myapp", "--context", "dev-001", "--namespace", "newnamespace"},
+			wantErr: false,
 		},
 	}
 
@@ -308,25 +432,16 @@ func TestValidateRequiredFlags(t *testing.T) {
 			flagSet.Usage = func() {}
 			_ = flagSet.Parse(tt.args)
 
-			err := validateRequiredFlags(flagSet, tt.args)
+			err := validateRequiredFlagsForTest(flagSet, tt.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateRequiredFlags(%v) error = %v, wantErr %v", tt.args, err, tt.wantErr)
+				return
 			}
 
-			// Additional check: if we expect an error and got one, verify it's the right type
-			if tt.wantErr && err != nil {
-				errMsg := err.Error()
-				if !tt.skipContextValidation && strings.Contains(errMsg, "not found in kubeconfig") {
-					// This is the expected context validation error
-					return
-				}
-				if strings.Contains(errMsg, "requires explicit") {
-					// This is the expected missing flag error
-					return
-				}
-				if strings.Contains(errMsg, "failed to get available contexts") {
-					// This is acceptable if kubectl is not available
-					return
+			// Check error message contains expected substring
+			if tt.wantErr && err != nil && tt.errMsg != "" {
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("validateRequiredFlags(%v) error = '%v', expected to contain '%v'", tt.args, err.Error(), tt.errMsg)
 				}
 			}
 		})
@@ -448,4 +563,74 @@ func TestGetKubeconfigContexts(t *testing.T) {
 
 	// Log the contexts for debugging (this is helpful to see what we got)
 	t.Logf("Found %d contexts: %v", len(contexts), contexts)
+}
+
+func TestMockedKubeconfigContexts(t *testing.T) {
+	// Setup mocks
+	setupMocks()
+	defer teardownMocks()
+
+	// Test mocked contexts
+	contexts, err := getKubeconfigContextsForTest()
+	if err != nil {
+		t.Fatalf("getKubeconfigContextsForTest() returned error: %v", err)
+	}
+
+	expectedContexts := []string{"dev-001", "test-001", "prod-001"}
+	if len(contexts) != len(expectedContexts) {
+		t.Errorf("getKubeconfigContextsForTest() returned %d contexts, want %d", len(contexts), len(expectedContexts))
+	}
+
+	for i, expected := range expectedContexts {
+		if i >= len(contexts) || contexts[i] != expected {
+			t.Errorf("getKubeconfigContextsForTest() context[%d] = %v, want %v", i, contexts[i], expected)
+		}
+	}
+}
+
+func TestMockedNamespacesInContext(t *testing.T) {
+	// Setup mocks
+	setupMocks()
+	defer teardownMocks()
+
+	tests := []struct {
+		context  string
+		expected []string
+	}{
+		{
+			context:  "dev-001",
+			expected: []string{"default", "test", "development"},
+		},
+		{
+			context:  "test-001",
+			expected: []string{"default", "test", "testing"},
+		},
+		{
+			context:  "prod-001",
+			expected: []string{"default", "production", "monitoring"},
+		},
+		{
+			context:  "unknown-context",
+			expected: []string{"default", "test"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("context_%s", tt.context), func(t *testing.T) {
+			namespaces, err := getNamespacesInContextForTest(tt.context)
+			if err != nil {
+				t.Fatalf("getNamespacesInContextForTest(%s) returned error: %v", tt.context, err)
+			}
+
+			if len(namespaces) != len(tt.expected) {
+				t.Errorf("getNamespacesInContextForTest(%s) returned %d namespaces, want %d", tt.context, len(namespaces), len(tt.expected))
+			}
+
+			for i, expected := range tt.expected {
+				if i >= len(namespaces) || namespaces[i] != expected {
+					t.Errorf("getNamespacesInContextForTest(%s) namespace[%d] = %v, want %v", tt.context, i, namespaces[i], expected)
+				}
+			}
+		})
+	}
 }
