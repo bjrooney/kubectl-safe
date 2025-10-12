@@ -5,17 +5,17 @@ metadata:
 spec:
   version: v1.0.4
   homepage: https://github.com/bjrooney/kubectl-safe
-  shortDescription: Interactive safety net for dangerous kubectl commands
+  shortDescription: Interactive safety net for modifying kubectl commands
   description: |
-    kubectl-safe provides an interactive safety net for dangerous kubectl commands.
+    kubectl-safe provides an interactive safety net for modifying kubectl commands.
     
     It acts as a wrapper around destructive kubectl operations to prevent common
     mistakes by:
-    - Requiring explicit --context and --namespace flags for dangerous commands
+    - Requiring explicit --context and --namespace flags for modifying commands
     - Showing interactive confirmation prompts with target details
     - Acting as a final checkpoint before potentially destructive operations
     
-    Dangerous commands include: delete, apply, create, replace, patch, edit, 
+    Modifying commands include: delete, apply, create, replace, patch, edit, 
     scale, rollout, drain, cordon, uncordon, and taint.
     
     For safe commands like get, describe, logs, etc., this plugin acts as a

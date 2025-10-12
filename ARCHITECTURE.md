@@ -26,7 +26,7 @@ kubectl-safe/
   - ✅ Production context detection (`prod` in context name)
   - ✅ Interactive confirmations
   - ✅ Context/namespace validation with colored lists
-  - ✅ Safety checks for dangerous commands
+  - ✅ Safety checks for modifying commands
 - **Status**: ✅ Active
 
 ### `pkg/safe/safe_test.go`

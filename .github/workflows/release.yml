@@ -139,10 +139,6 @@ jobs:
           ### Changes
           - Version bumped to v${{ env.VERSION }}
           ### Installation
-          #### Krew (recommended)
-          ```bash
-          kubectl krew install safe
-          ```
           #### Manual Installation
           Download the appropriate binary for your platform from the assets below and place it in your PATH.
           ### Usage
@@ -153,11 +149,4 @@ jobs:
           ### Checksums
           See the attached safe.yaml file for SHA256 checksums of all binaries.
           checksums.txt
-    - name: Trigger Krew Index Update
-      uses: peter-evans/repository-dispatch@v4
-      with:
-        token: ${{ secrets.KREW_INDEX_TOKEN }}
-        repository: bjrooney/kubectl-safe
-        event-type: krew-publish
-        client-payload: '{"version": "${{ github.ref_name }}"}'
  
