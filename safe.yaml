@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   name: safe
 spec:
-  version: v1.0.4
+  version: v1.0.5
   homepage: https://github.com/bjrooney/kubectl-safe
   shortDescription: Interactive safety net for modifying kubectl commands
   description: |
@@ -25,41 +25,41 @@ spec:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.4/kubectl-safe-linux-amd64.tar.gz
-    sha256: "bc85447db39dc0673e681238c0c97463f4f32aab712745053034813917c3c7fc"
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.5/kubectl-safe-linux-amd64.tar.gz
+    sha256: "d64a7f94a6a37441eabbae1d333fbb64ee0d6e50c6fc3aeab8c55220664c7df7"
     bin: kubectl-safe
   - selector:
       matchLabels:
         os: linux
         arch: arm64
-    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.4/kubectl-safe-linux-arm64.tar.gz
-    sha256: "2c2002be17cac3cb89e111e4d205442906136cb5230d8390b7fbc9fa0967377c"
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.5/kubectl-safe-linux-arm64.tar.gz
+    sha256: "96962af57616a68a779b3e60372aded0118ea6c9aca04fe9b8a9b37bffa76a52"
     bin: kubectl-safe
   - selector:
       matchLabels:
         os: darwin
         arch: amd64
-    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.4/kubectl-safe-darwin-amd64.tar.gz
-    sha256: "1ceb8b42a06e4a797892d4c7015d043a3fce1fbe4da82b7950445cdeb7fb3012"
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.5/kubectl-safe-darwin-amd64.tar.gz
+    sha256: "219d524bcd07c1eca8509c5a0f35e28f841808096a8692057c4d7d046cef2496"
     bin: kubectl-safe
   - selector:
       matchLabels:
         os: darwin
         arch: arm64
-    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.4/kubectl-safe-darwin-arm64.tar.gz
-    sha256: "18314ad00683574342eb65d214cc37681beb852d633333ae6bc7169deda3b5cb"
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.5/kubectl-safe-darwin-arm64.tar.gz
+    sha256: "963efa28ed374985721545c6a429c628a26b8e919761eda924dd80a005a8c45a"
     bin: kubectl-safe
   - selector:
       matchLabels:
         os: windows
         arch: amd64
-    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.4/kubectl-safe-windows-amd64.zip
-    sha256: "56f8c71d09a2a2688595c89e4408f0e68f96a560e794cfc812e1569f461f8258"
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.5/kubectl-safe-windows-amd64.zip
+    sha256: "1a2172afaf38df9894cfc0380e0e35f8a98a63ba71d46b89e1253e0d2d83bccb"
     bin: kubectl-safe.exe
   - selector:
       matchLabels:
         os: windows
         arch: arm64
-    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.4/kubectl-safe-windows-arm64.zip
-    sha256: "f1d964608ab82817f74446c2f24f95221d4b1b2d2e1dfc1df49f0234672f5f3e"
+    uri: https://github.com/bjrooney/kubectl-safe/releases/download/v1.0.5/kubectl-safe-windows-arm64.zip
+    sha256: "dc4f43bc6aac876f94d2d6d049dcc942f6371e607123dbd7f67f61d38b827a94"
     bin: kubectl-safe.exe
