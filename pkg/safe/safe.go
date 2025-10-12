@@ -271,12 +271,26 @@ func getKubeconfigContexts() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var validContexts []string
-	for _, c := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+	outputStr := strings.TrimSpace(string(output))
+
+	// If there's no output, return empty slice (not nil)
+	if outputStr == "" {
+		return []string{}, nil
+	}
+
+	for _, c := range strings.Split(outputStr, "\n") {
 		if t := strings.TrimSpace(c); t != "" {
 			validContexts = append(validContexts, t)
 		}
 	}
+
+	// Ensure we return empty slice instead of nil if no valid contexts found
+	if validContexts == nil {
+		validContexts = []string{}
+	}
+
 	return validContexts, nil
 }
 
