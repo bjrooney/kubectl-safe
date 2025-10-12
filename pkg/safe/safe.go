@@ -6,184 +6,189 @@ import (
 	"os"
 	"os/exec"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/spf13/pflag"
 )
 
 // Solarized color scheme
 var (
-	// Solarized base colors
-	solarizedRed     = color.New(color.FgHiRed).Add(color.Bold)    // #dc322f - for warnings/errors
-	solarizedOrange  = color.New(color.FgHiYellow).Add(color.Bold) // #cb4b16 - for warnings
-	solarizedYellow  = color.New(color.FgYellow)                   // #b58900 - for highlights
-	solarizedGreen   = color.New(color.FgGreen)                    // #859900 - for success/safe
-	solarizedCyan    = color.New(color.FgCyan)                     // #2aa198 - for info/commands
-	solarizedBlue    = color.New(color.FgBlue)                     // #268bd2 - for info
-	solarizedViolet  = color.New(color.FgMagenta)                  // #6c71c4 - for special
-	solarizedMagenta = color.New(color.FgHiMagenta)                // #d33682 - for emphasis
+	solarizedRed    = color.New(color.FgHiRed).Add(color.Bold)
+	solarizedOrange = color.New(color.FgHiYellow).Add(color.Bold)
+	solarizedYellow = color.New(color.FgYellow)
+	solarizedGreen  = color.New(color.FgGreen)
+	solarizedCyan   = color.New(color.FgCyan)
+	solarizedBlue   = color.New(color.FgBlue)
+	solarizedViolet = color.New(color.FgMagenta)
 )
-
-// printColoredList prints a list of items with alternating Solarized colors
-func printColoredList(items []string) {
-	colors := []*color.Color{solarizedCyan, solarizedGreen, solarizedYellow, solarizedViolet, solarizedBlue, solarizedMagenta}
-
-	for i, item := range items {
-		colorIndex := i % len(colors)
-		if i > 0 {
-			fmt.Print(", ")
-		}
-		colors[colorIndex].Print(item)
-	}
-	fmt.Print("\n")
-}
 
 // Version will be set at build time
 var Version = "dev"
 
-// DangerousCommands are kubectl commands that can cause data loss or service disruption
-var DangerousCommands = []string{
-	"delete",
-	"apply",
-	"create",
-	"replace",
-	"patch",
-	"edit",
-	"scale",
-	"rollout",
-	"drain",
-	"cordon",
-	"uncordon",
-	"taint",
+// ModifyingCommandMap defines commands that are modifying by themselves or with specific subcommands.
+var ModifyingCommandMap = map[string][]string{
+	"apply": {}, "create": {}, "delete": {}, "edit": {}, "patch": {}, "replace": {}, "scale": {},
+	"cordon": {}, "uncordon": {}, "drain": {}, "taint": {},
+	"autoscale": {}, "expose": {},
+	"auth":        {"reconcile"},
+	"certificate": {"approve", "deny"},
+	"rollout":     {"restart", "undo"},
+	"set":         {"env", "image", "resources", "selector", "subject", "serviceaccount"},
 }
 
-// Execute is the main entry point for the kubectl-safe plugin
+// ModifyingByFlagMap defines commands that are ONLY modifying when specific flags are used.
+var ModifyingByFlagMap = map[string][]string{
+	"annotate": {"-f", "--filename"},
+	"label":    {"-f", "--filename"},
+}
+
+// printColoredList prints a list of items with alternating Solarized colors
+func printColoredList(items []string) {
+	colors := []*color.Color{solarizedCyan, solarizedGreen, solarizedYellow, solarizedViolet, solarizedBlue}
+	for i, item := range items {
+		if i > 0 {
+			fmt.Print(", ")
+		}
+		colors[i%len(colors)].Print(item)
+	}
+	fmt.Println()
+}
+
+// Execute is the main entry point for the plugin.
 func Execute() error {
-	args := os.Args[1:] // Skip the program name
+	args := os.Args[1:]
 
 	if len(args) == 0 {
 		return showUsage()
 	}
-
-	// Handle version flag
 	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v") {
 		solarizedBlue.Print("kubectl-safe version ")
 		solarizedCyan.Printf("%s\n", Version)
 		return nil
 	}
 
-	// Check if this is a dangerous command
-	if !isDangerousCommand(args) {
-		// For safe commands, show a message and pass through to kubectl
-		solarizedGreen.Print("→ Safe command detected. ")
+	flagSet := pflag.NewFlagSet("safe-flags", pflag.ContinueOnError)
+	var context, namespace string
+	flagSet.StringVarP(&context, "context", "c", "", "Kubernetes context")
+	flagSet.StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
+	flagSet.Usage = func() {}
+	_ = flagSet.Parse(args)
+
+	commandAndArgs := flagSet.Args()
+
+	if !isModifyingCommand(commandAndArgs, args) {
+		solarizedGreen.Print("→ Read-only command detected. ")
 		solarizedCyan.Println("Passing directly to kubectl...")
 		return executeKubectl(args)
 	}
 
-	// For dangerous commands, enforce safety checks
-	if err := validateRequiredFlags(args); err != nil {
+	if err := validateRequiredFlags(flagSet, commandAndArgs); err != nil {
 		handleValidationError(err)
-		return err // This won't be reached due to os.Exit(1) in handleValidationError
-	}
-
-	// Show interactive confirmation
-	if err := showConfirmation(args); err != nil {
 		return err
 	}
 
-	// Execute the kubectl command
+	context, _ = flagSet.GetString("context")
+	namespace, _ = flagSet.GetString("namespace")
+
+	if err := showConfirmation(args, context, namespace); err != nil {
+		return err
+	}
+
 	return executeKubectl(args)
 }
 
-// isDangerousCommand checks if the command contains dangerous operations
-func isDangerousCommand(args []string) bool {
-	if len(args) == 0 {
+// isModifyingCommand checks if a command will modify cluster state.
+func isModifyingCommand(commandAndArgs []string, rawArgs []string) bool {
+	if len(commandAndArgs) == 0 {
 		return false
 	}
+	command := commandAndArgs[0]
 
-	command := args[0]
-	return slices.Contains(DangerousCommands, command)
-}
-
-// validateRequiredFlags ensures --context and --namespace are provided for dangerous commands
-func validateRequiredFlags(args []string) error {
-	hasContext := false
-	hasNamespace := false
-	contextValue := ""
-
-	for _, arg := range args {
-		if arg == "--context" || arg == "-c" {
-			hasContext = true
+	// 1. Check for modifying by subcommand
+	if modifyingSubcommands, exists := ModifyingCommandMap[command]; exists {
+		if len(modifyingSubcommands) == 0 {
+			return true // Command is always modifying
 		}
-		if arg == "--namespace" || arg == "-n" {
-			hasNamespace = true
-		}
-		// Check for flag=value format
-		if strings.HasPrefix(arg, "--context=") || strings.HasPrefix(arg, "-c=") {
-			hasContext = true
-			contextValue = extractFlagValue(args, "--context", "-c")
-		}
-		if strings.HasPrefix(arg, "--namespace=") || strings.HasPrefix(arg, "-n=") {
-			hasNamespace = true
+		if len(commandAndArgs) > 1 {
+			subcommand := commandAndArgs[1]
+			if slices.Contains(modifyingSubcommands, subcommand) {
+				return true // Found a modifying subcommand
+			}
 		}
 	}
 
-	// If context was found but not extracted yet (separate flag format), extract it
-	if hasContext && contextValue == "" {
-		contextValue = extractFlagValue(args, "--context", "-c")
+	// 2. Check for modifying by flag
+	if modifyingFlags, exists := ModifyingByFlagMap[command]; exists {
+		for _, arg := range rawArgs {
+			for _, flag := range modifyingFlags {
+				if arg == flag || strings.HasPrefix(arg, flag+"=") {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// validateRequiredFlags ensures required flags are present for modifying commands.
+func validateRequiredFlags(fs *pflag.FlagSet, commandAndArgs []string) error {
+	hasContext := fs.Changed("context")
+	hasNamespace := fs.Changed("namespace")
+
+	isNamespaceResourceCommand := false
+	if len(commandAndArgs) > 1 {
+		resourceType := strings.ToLower(commandAndArgs[1])
+		if resourceType == "namespace" || resourceType == "namespaces" || resourceType == "ns" {
+			isNamespaceResourceCommand = true
+		}
 	}
 
 	var missing []string
 	if !hasContext {
 		missing = append(missing, "--context")
 	}
-	if !hasNamespace {
+	if !hasNamespace && !isNamespaceResourceCommand {
 		missing = append(missing, "--namespace")
 	}
-
 	if len(missing) > 0 {
-		return fmt.Errorf("dangerous command requires explicit %s flag(s). This ensures you're targeting the correct cluster and namespace", strings.Join(missing, " and "))
+		return fmt.Errorf("modifying command requires explicit %s flag(s)", strings.Join(missing, " and "))
 	}
 
-	// Validate that the provided context exists in kubeconfig
-	if hasContext && contextValue != "" && contextValue != "<not specified>" {
-		availableContexts, err := getKubeconfigContexts()
+	contextValue, _ := fs.GetString("context")
+	namespaceValue, _ := fs.GetString("namespace")
+
+	availableContexts, err := getKubeconfigContexts()
+	if err != nil {
+		return fmt.Errorf("failed to get available contexts: %w", err)
+	}
+	if !slices.Contains(availableContexts, contextValue) {
+		return fmt.Errorf("context '%s' not found in kubeconfig. Available contexts: %s",
+			contextValue, strings.Join(availableContexts, ", "))
+	}
+
+	if hasNamespace && !isNamespaceResourceCommand {
+		availableNamespaces, err := getNamespacesInContext(contextValue)
 		if err != nil {
-			return fmt.Errorf("failed to get available contexts from kubeconfig: %w", err)
+			return fmt.Errorf("failed to get namespaces for context '%s': %w", contextValue, err)
 		}
-
-		if !slices.Contains(availableContexts, contextValue) {
-			return fmt.Errorf("context '%s' not found in kubeconfig. Available contexts: %s",
-				contextValue, strings.Join(availableContexts, ", "))
-		}
-	}
-
-	// Validate that the provided namespace exists in the specified context
-	if hasNamespace && hasContext && contextValue != "" && contextValue != "<not specified>" {
-		namespaceValue := extractFlagValue(args, "--namespace", "-n")
-		if namespaceValue != "" && namespaceValue != "<not specified>" {
-			availableNamespaces, err := getNamespacesInContext(contextValue)
-			if err != nil {
-				return fmt.Errorf("failed to get available namespaces for context '%s': %w", contextValue, err)
-			}
-
-			if !slices.Contains(availableNamespaces, namespaceValue) {
-				return fmt.Errorf("namespace '%s' not found in context '%s'. Available namespaces: %s",
-					namespaceValue, contextValue, strings.Join(availableNamespaces, ", "))
-			}
+		isCreateCommand := commandAndArgs[0] == "create"
+		if !slices.Contains(availableNamespaces, namespaceValue) && !isCreateCommand {
+			return fmt.Errorf("namespace '%s' not found in context '%s'. Available namespaces: %s",
+				namespaceValue, contextValue, strings.Join(availableNamespaces, ", "))
 		}
 	}
-
 	return nil
 }
 
-// handleValidationError displays appropriate colored error messages and exits
+// handleValidationError displays colored error messages and exits.
 func handleValidationError(err error) {
 	errMsg := err.Error()
-
 	if strings.Contains(errMsg, "requires explicit") {
 		solarizedRed.Print("❌ ERROR: ")
-		solarizedOrange.Print("Dangerous command requires explicit flags.\n")
+		solarizedOrange.Print("Modifying command requires explicit flags.\n")
 		solarizedYellow.Print("This ensures you're targeting the correct cluster and namespace.\n")
 	} else if strings.Contains(errMsg, "not found in kubeconfig") {
 		parts := strings.Split(errMsg, ". Available contexts: ")
@@ -193,8 +198,7 @@ func handleValidationError(err error) {
 			contextPart = strings.Replace(contextPart, "' not found in kubeconfig", "", 1)
 			solarizedOrange.Printf("Context '%s' not found in kubeconfig.\n", contextPart)
 			solarizedBlue.Print("Available contexts: ")
-			availableContexts := strings.Split(parts[1], ", ")
-			printColoredList(availableContexts)
+			printColoredList(strings.Split(parts[1], ", "))
 		}
 	} else if strings.Contains(errMsg, "not found in context") {
 		parts := strings.Split(errMsg, ". Available namespaces: ")
@@ -202,193 +206,125 @@ func handleValidationError(err error) {
 			solarizedYellow.Print("✋ WARNING: ")
 			solarizedOrange.Print(parts[0] + ".\n")
 			solarizedBlue.Print("Available namespaces: ")
-			availableNamespaces := strings.Split(parts[1], ", ")
-			printColoredList(availableNamespaces)
+			printColoredList(strings.Split(parts[1], ", "))
 		}
 	} else {
-		// For other errors (kubeconfig access issues, etc.)
 		solarizedRed.Print("❌ ERROR: ")
 		solarizedOrange.Printf("%s\n", errMsg)
 	}
-
 	os.Exit(1)
 }
 
-// showConfirmation displays an interactive prompt for dangerous commands
-func showConfirmation(args []string) error {
-	solarizedRed.Print("⚠️  DANGEROUS COMMAND DETECTED ⚠️\n\n")
-	solarizedOrange.Print("You are about to execute: ")
+// showConfirmation displays an interactive prompt for modifying commands.
+func showConfirmation(args []string, context, namespace string) error {
+	solarizedOrange.Print("⚠️  MODIFYING COMMAND DETECTED ⚠️\n\n")
+	solarizedYellow.Print("You are about to execute: ")
 	solarizedCyan.Printf("kubectl %s\n\n", strings.Join(args, " "))
-
-	// Extract context and namespace for display
-	context := extractFlagValue(args, "--context", "-c")
-	namespace := extractFlagValue(args, "--namespace", "-n")
 
 	solarizedBlue.Print("Target Details:\n")
 	solarizedBlue.Print("  Context:   ")
 	solarizedCyan.Printf("%s\n", context)
-	solarizedBlue.Print("  Namespace: ")
-	solarizedCyan.Printf("%s\n\n", namespace)
+	if namespace != "" {
+		solarizedBlue.Print("  Namespace: ")
+		solarizedCyan.Printf("%s\n", namespace)
+	}
+	fmt.Println()
 
-	// Check if this is a production context
 	if strings.Contains(strings.ToLower(context), "prod") {
 		solarizedRed.Print("🚨 PRODUCTION CONTEXT WARNING! 🚨\n")
-		solarizedOrange.Print("You are about to run a command on a PRODUCTION context!\n\n")
-		solarizedViolet.Printf("To proceed, please type the context name ('%s') and press Enter: ", context)
-
+		solarizedOrange.Print("This command targets a PRODUCTION context!\n\n")
+		solarizedViolet.Printf("To proceed, type the context name ('%s') and press Enter: ", context)
 		reader := bufio.NewReader(os.Stdin)
-		confirmation, err := reader.ReadString('\n')
-		if err != nil {
-			solarizedRed.Print("❌ ERROR: ")
-			solarizedOrange.Printf("Failed to read user input: %v\n", err)
-			return fmt.Errorf("failed to read user input: %w", err)
-		}
-
+		confirmation, _ := reader.ReadString('\n')
 		if strings.TrimSpace(confirmation) != context {
-			solarizedRed.Print("❌ Aborted: ")
-			solarizedOrange.Print("Context name did not match. Command will not be executed.\n")
+			solarizedRed.Println("❌ Aborted: Context name mismatch.")
 			return fmt.Errorf("operation cancelled by user")
 		}
-
-		solarizedGreen.Println("Production context confirmed. Proceeding with operation...")
+		solarizedGreen.Println("Production context confirmed.")
 		return nil
 	}
 
-	solarizedYellow.Print("This operation may cause data loss or service disruption.\n")
+	solarizedYellow.Print("This operation will modify the state of the cluster.\n")
 	solarizedViolet.Print("Are you sure you want to continue? (yes/no): ")
-
 	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		solarizedRed.Print("❌ ERROR: ")
-		solarizedOrange.Printf("Failed to read user input: %v\n", err)
-		return fmt.Errorf("failed to read user input: %w", err)
-	}
-
+	response, _ := reader.ReadString('\n')
 	response = strings.TrimSpace(strings.ToLower(response))
 	if response != "yes" && response != "y" {
-		solarizedRed.Print("Operation cancelled.")
+		solarizedRed.Println("Operation cancelled.")
 		return fmt.Errorf("operation cancelled by user")
 	}
-
 	solarizedGreen.Println("Proceeding with operation...")
 	return nil
 }
 
-// extractFlagValue extracts the value for a given flag from args
-func extractFlagValue(args []string, longFlag, shortFlag string) string {
-	for i, arg := range args {
-		// Check for --flag=value format
-		if strings.HasPrefix(arg, longFlag+"=") {
-			return strings.TrimPrefix(arg, longFlag+"=")
-		}
-		if strings.HasPrefix(arg, shortFlag+"=") {
-			return strings.TrimPrefix(arg, shortFlag+"=")
-		}
-		// Check for --flag value format
-		if (arg == longFlag || arg == shortFlag) && i+1 < len(args) {
-			return args[i+1]
-		}
-	}
-	return "<not specified>"
-}
-
-// executeKubectl runs the actual kubectl command
+// executeKubectl runs the actual kubectl command.
 func executeKubectl(args []string) error {
 	cmd := exec.Command("kubectl", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
+	cmd.Stdout, cmd.Stderr, cmd.Stdin = os.Stdout, os.Stderr, os.Stdin
 	return cmd.Run()
 }
 
-// getKubeconfigContexts returns the list of available contexts from kubeconfig
+// getKubeconfigContexts returns the list of available contexts.
 func getKubeconfigContexts() ([]string, error) {
 	cmd := exec.Command("kubectl", "config", "get-contexts", "--output=name")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute kubectl config get-contexts: %w", err)
+		return nil, err
 	}
-
-	outputStr := strings.TrimSpace(string(output))
-	if outputStr == "" {
-		// No contexts available - return empty slice
-		return []string{}, nil
-	}
-
-	contexts := strings.Split(outputStr, "\n")
-
-	// Filter out empty strings
 	var validContexts []string
-	for _, context := range contexts {
-		if strings.TrimSpace(context) != "" {
-			validContexts = append(validContexts, strings.TrimSpace(context))
+	for _, c := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if t := strings.TrimSpace(c); t != "" {
+			validContexts = append(validContexts, t)
 		}
 	}
-
 	return validContexts, nil
 }
 
-// getNamespacesInContext returns the list of available namespaces in the given context
+// getNamespacesInContext returns the list of namespaces in a context.
 func getNamespacesInContext(context string) ([]string, error) {
 	cmd := exec.Command("kubectl", "get", "namespaces", "--output=name", "--context", context)
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get namespaces for context '%s': %w", context, err)
+		return nil, err
 	}
-
-	outputStr := strings.TrimSpace(string(output))
-	if outputStr == "" {
-		// No namespaces available - return empty slice
-		return []string{}, nil
-	}
-
-	namespaceLines := strings.Split(outputStr, "\n")
-
-	// Extract namespace names from the "namespace/name" format
 	var namespaces []string
-	for _, line := range namespaceLines {
-		line = strings.TrimSpace(line)
-		if line != "" && strings.HasPrefix(line, "namespace/") {
-			nsName := strings.TrimPrefix(line, "namespace/")
-			if nsName != "" {
-				namespaces = append(namespaces, nsName)
-			}
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if trimmed := strings.TrimPrefix(strings.TrimSpace(line), "namespace/"); trimmed != "" {
+			namespaces = append(namespaces, trimmed)
 		}
 	}
-
 	return namespaces, nil
 }
 
-// showUsage displays help information
+// showUsage displays help information.
 func showUsage() error {
 	solarizedBlue.Print("kubectl-safe: ")
-	solarizedCyan.Print("Interactive safety net for dangerous kubectl commands\n")
+	solarizedCyan.Print("A safety net for kubectl commands\n")
 	solarizedYellow.Printf("Version: %s\n\n", Version)
-
 	solarizedViolet.Print("Usage:\n")
-	fmt.Print("  ")
-	solarizedCyan.Print("kubectl safe ")
-	fmt.Print("<kubectl-command> [flags]\n")
-	fmt.Print("  ")
-	solarizedCyan.Print("kubectl safe ")
-	fmt.Print("--version\n\n")
+	fmt.Print("  kubectl safe <kubectl-command> [flags]\n\n")
+	fmt.Print("This plugin wraps kubectl to enforce safety checks for operations that modify cluster state.\n\n")
 
-	fmt.Print("This plugin acts as a safety wrapper around kubectl commands. For dangerous operations,\nit will:\n")
-	solarizedGreen.Print("  - Require explicit --context and --namespace flags\n")
-	solarizedGreen.Print("  - Show an interactive confirmation prompt\n")
-	solarizedGreen.Print("  - Display target cluster and namespace information\n\n")
+	var always, conditional, byFlag []string
+	for cmd, subCmds := range ModifyingCommandMap {
+		if len(subCmds) == 0 {
+			always = append(always, cmd)
+		} else {
+			conditional = append(conditional, fmt.Sprintf("%s (%s)", cmd, strings.Join(subCmds, ", ")))
+		}
+	}
+	for cmd, flags := range ModifyingByFlagMap {
+		byFlag = append(byFlag, fmt.Sprintf("%s (with %s)", cmd, strings.Join(flags, "/")))
+	}
+	sort.Strings(always)
+	sort.Strings(conditional)
+	sort.Strings(byFlag)
 
-	solarizedViolet.Print("Examples:\n")
-	fmt.Print("  ")
-	solarizedCyan.Print("kubectl safe delete pod mypod --context=prod --namespace=default\n")
-	fmt.Print("  ")
-	solarizedCyan.Print("kubectl safe apply -f deployment.yaml --context=staging --namespace=myapp\n\n")
-
-	solarizedOrange.Print("Dangerous commands that trigger safety checks:\n")
-	fmt.Printf("  %s\n\n", strings.Join(DangerousCommands, ", "))
-
-	fmt.Print("For safe commands, this plugin acts as a transparent pass-through to kubectl.\n\n")
+	solarizedOrange.Print("Always-modifying commands:\n")
+	fmt.Printf("  %s\n\n", strings.Join(always, ", "))
+	solarizedOrange.Print("Commands with modifying subcommands:\n")
+	fmt.Printf("  %s\n\n", strings.Join(conditional, ", "))
+	solarizedOrange.Print("Conditionally modifying commands (by flag):\n")
+	fmt.Printf("  %s\n\n", strings.Join(byFlag, ", "))
 	return nil
 }
