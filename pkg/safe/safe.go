@@ -188,7 +188,7 @@ func handleValidationError(err error) {
 	errMsg := err.Error()
 	if strings.Contains(errMsg, "requires explicit") {
 		solarizedRed.Print("❌ ERROR: ")
-		solarizedOrange.Print("Modifying command requires explicit flags.\n")
+		solarizedOrange.Print("Modifying command requires explicit --context and --namespace flags.\n")
 		solarizedYellow.Print("This ensures you're targeting the correct cluster and namespace.\n")
 	} else if strings.Contains(errMsg, "not found in kubeconfig") {
 		parts := strings.Split(errMsg, ". Available contexts: ")
