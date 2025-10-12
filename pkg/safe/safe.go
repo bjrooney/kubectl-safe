@@ -44,6 +44,43 @@ var ModifyingByFlagMap = map[string][]string{
 	"label":    {"-f", "--filename"},
 }
 
+// MessageType defines the category of the message to be printed.
+type MessageType int
+
+const (
+	TypeNotice MessageType = iota
+	TypeWarning
+	TypeAlert
+	TypeProductionAlert
+)
+
+// printMessage provides a uniform, styled format for user-facing messages.
+func printMessage(msgType MessageType, title string, message string, hint string) {
+	switch msgType {
+	case TypeNotice:
+		solarizedOrange.Print("❗ NOTICE: ")
+		solarizedOrange.Printf("%s\n", title)
+		if message != "" {
+			fmt.Printf("          %s\n", message)
+		}
+	case TypeWarning:
+		solarizedYellow.Print("✋ WARNING: ")
+		solarizedOrange.Printf("%s\n", title)
+		if message != "" {
+			solarizedBlue.Print("         -> ")
+			fmt.Println(message)
+		}
+	case TypeAlert:
+		solarizedOrange.Printf("⚠️  %s ⚠️\n", title)
+	case TypeProductionAlert:
+		solarizedRed.Printf("🚨 %s 🚨\n", title)
+	}
+
+	if hint != "" {
+		solarizedYellow.Printf("   %s\n", hint)
+	}
+}
+
 // printColoredList prints a list of items with alternating Solarized colors
 func printColoredList(items []string) {
 	colors := []*color.Color{solarizedCyan, solarizedGreen, solarizedYellow, solarizedViolet, solarizedBlue}
@@ -106,20 +143,18 @@ func isModifyingCommand(commandAndArgs []string, rawArgs []string) bool {
 	}
 	command := commandAndArgs[0]
 
-	// 1. Check for modifying by subcommand
 	if modifyingSubcommands, exists := ModifyingCommandMap[command]; exists {
 		if len(modifyingSubcommands) == 0 {
-			return true // Command is always modifying
+			return true
 		}
 		if len(commandAndArgs) > 1 {
 			subcommand := commandAndArgs[1]
 			if slices.Contains(modifyingSubcommands, subcommand) {
-				return true // Found a modifying subcommand
+				return true
 			}
 		}
 	}
 
-	// 2. Check for modifying by flag
 	if modifyingFlags, exists := ModifyingByFlagMap[command]; exists {
 		for _, arg := range rawArgs {
 			for _, flag := range modifyingFlags {
@@ -186,53 +221,42 @@ func validateRequiredFlags(fs *pflag.FlagSet, commandAndArgs []string) error {
 // handleValidationError displays colored error messages and exits.
 func handleValidationError(err error) {
 	errMsg := err.Error()
+
 	if strings.Contains(errMsg, "requires explicit") {
-		solarizedOrange.Print("⚠️  MODIFYING COMMAND DETECTED ⚠️\n")
-		solarizedOrange.Print("requires explicit --context and --namespace flags.\n")
-		solarizedOrange.Print("This ensures you're targeting the correct cluster and namespace.\n")
+		printMessage(TypeNotice, "Missing Required Flags", "Modifying commands require explicit --context and --namespace flags.", "This ensures you are targeting the correct cluster and namespace.")
 	} else if strings.Contains(errMsg, "not found in kubeconfig") {
 		parts := strings.Split(errMsg, ". Available contexts: ")
 		if len(parts) == 2 {
-			solarizedYellow.Print("✋ WARNING: ")
-			contextPart := strings.Replace(parts[0], "context '", "", 1)
-			contextPart = strings.Replace(contextPart, "' not found in kubeconfig", "", 1)
-			solarizedOrange.Printf("Context '%s' not found in kubeconfig.\n", contextPart)
-			solarizedBlue.Print("Available contexts: ")
+			printMessage(TypeWarning, strings.TrimSuffix(parts[0], "'"), "", "")
+			solarizedBlue.Print("         Available contexts: ")
 			printColoredList(strings.Split(parts[1], ", "))
 		}
 	} else if strings.Contains(errMsg, "not found in context") {
 		parts := strings.Split(errMsg, ". Available namespaces: ")
 		if len(parts) == 2 {
-			solarizedYellow.Print("✋ WARNING: ")
-			solarizedOrange.Print(parts[0] + ".\n")
-			solarizedBlue.Print("Available namespaces: ")
+			printMessage(TypeWarning, strings.TrimSuffix(parts[0], ".'"), "", "")
+			solarizedBlue.Print("         Available namespaces: ")
 			printColoredList(strings.Split(parts[1], ", "))
 		}
 	} else {
-		solarizedRed.Print("❌ ERROR: ")
-		solarizedOrange.Printf("%s\n", errMsg)
+		printMessage(TypeNotice, "An unexpected error occurred", errMsg, "")
 	}
+
 	os.Exit(1)
 }
 
 // showConfirmation displays an interactive prompt for modifying commands.
 func showConfirmation(args []string, context, namespace string) error {
-	solarizedOrange.Print("⚠️  MODIFYING COMMAND DETECTED ⚠️\n\n")
-	solarizedYellow.Print("You are about to execute: ")
-	solarizedCyan.Printf("kubectl %s\n\n", strings.Join(args, " "))
+	isProd := strings.Contains(strings.ToLower(context), "prod")
+	fullCommand := "kubectl " + strings.Join(args, " ")
 
-	solarizedBlue.Print("Target Details:\n")
-	solarizedBlue.Print("  Context:   ")
-	solarizedCyan.Printf("%s\n", context)
-	if namespace != "" {
-		solarizedBlue.Print("  Namespace: ")
-		solarizedCyan.Printf("%s\n", namespace)
-	}
-	fmt.Println()
+	// Production context has a streamlined, high-visibility prompt
+	if isProd {
+		printMessage(TypeProductionAlert, "PRODUCTION CONTEXT WARNING!", "", "")
 
-	if strings.Contains(strings.ToLower(context), "prod") {
-		solarizedRed.Print("🚨 PRODUCTION CONTEXT WARNING! 🚨\n")
-		solarizedOrange.Print("This command targets a PRODUCTION context!\n\n")
+		solarizedYellow.Print("This operation will modify the state of the production cluster: ")
+		solarizedCyan.Printf("%s\n", fullCommand)
+
 		solarizedViolet.Printf("To proceed, type the context name ('%s') and press Enter: ", context)
 		reader := bufio.NewReader(os.Stdin)
 		confirmation, _ := reader.ReadString('\n')
@@ -244,7 +268,12 @@ func showConfirmation(args []string, context, namespace string) error {
 		return nil
 	}
 
-	solarizedYellow.Print("This operation will modify the state of the cluster.\n")
+	// Non-production context has the standard simplified prompt
+	printMessage(TypeAlert, "MODIFYING COMMAND DETECTED", "", "")
+
+	solarizedYellow.Print("This operation will modify the state of the cluster: ")
+	solarizedCyan.Printf("%s\n", fullCommand)
+
 	solarizedViolet.Print("Are you sure you want to continue? (yes/no): ")
 	reader := bufio.NewReader(os.Stdin)
 	response, _ := reader.ReadString('\n')
@@ -271,26 +300,16 @@ func getKubeconfigContexts() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var validContexts []string
 	outputStr := strings.TrimSpace(string(output))
-
-	// If there's no output, return empty slice (not nil)
 	if outputStr == "" {
 		return []string{}, nil
 	}
-
 	for _, c := range strings.Split(outputStr, "\n") {
 		if t := strings.TrimSpace(c); t != "" {
 			validContexts = append(validContexts, t)
 		}
 	}
-
-	// Ensure we return empty slice instead of nil if no valid contexts found
-	if validContexts == nil {
-		validContexts = []string{}
-	}
-
 	return validContexts, nil
 }
 
