@@ -187,9 +187,9 @@ func validateRequiredFlags(fs *pflag.FlagSet, commandAndArgs []string) error {
 func handleValidationError(err error) {
 	errMsg := err.Error()
 	if strings.Contains(errMsg, "requires explicit") {
-		solarizedRed.Print("❌ ERROR: ")
-		solarizedOrange.Print("Modifying command requires explicit --context and --namespace flags.\n")
-		solarizedYellow.Print("This ensures you're targeting the correct cluster and namespace.\n")
+		solarizedOrange.Print("⚠️  MODIFYING COMMAND DETECTED ⚠️\n")
+		solarizedOrange.Print("requires explicit --context and --namespace flags.\n")
+		solarizedOrange.Print("This ensures you're targeting the correct cluster and namespace.\n")
 	} else if strings.Contains(errMsg, "not found in kubeconfig") {
 		parts := strings.Split(errMsg, ". Available contexts: ")
 		if len(parts) == 2 {
