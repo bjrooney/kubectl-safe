@@ -1,12 +1,31 @@
-# kubectl-safe
+<p align="center">
+  <img alt="GoReleaser Logo" src="https://avatars2.githubusercontent.com/u/24697112?v=3&s=200" height="200" />
+  <h3 align="center">GoReleaser</h3>
+  <p align="center">Release engineering, simplified.</p>
+  <p align="center">
+    <img alt="Go" src="./www/docs/static/go-light.svg#gh-light-mode-only" height="30" width="30" />
+    <img alt="Go" src="./www/docs/static/go-dark.svg#gh-dark-mode-only" height="30" width="30" />
+    <img alt="Rust" src="./www/docs/static/rust-light.svg#gh-light-mode-only" height="30" width="30" />
+    <img alt="Rust" src="./www/docs/static/rust-dark.svg#gh-dark-mode-only" height="30" width="30" />
+    <img alt="Zig" src="./www/docs/static/zig-light.svg#gh-light-mode-only" height="30" width="30" />
+    <img alt="Zig" src="./www/docs/static/zig-dark.svg#gh-dark-mode-only" height="30" width="30" />
+    <img alt="Bun" src="./www/docs/static/bun-light.svg#gh-light-mode-only" height="30" width="30" />
+    <img alt="Bun" src="./www/docs/static/bun-dark.svg#gh-dark-mode-only" height="30" width="30" />
+    <img alt="Deno" src="./www/docs/static/deno-light.svg#gh-light-mode-only" height="30" width="30" />
+    <img alt="Deno" src="./www/docs/static/deno-dark.svg#gh-dark-mode-only" height="30" width="30" />
+    <img alt="Python" src="./www/docs/static/python-light.svg#gh-light-mode-only" height="30" width="30" />
+    <img alt="Python" src="./www/docs/static/python-dark.svg#gh-dark-mode-only" height="30" width="30" />
+  </p>
+</p>
 
 A Krew plugin that provides an interactive safety net for modifying kubectl commands.
 
-## Overview
+We handle the complexities of releasing so you can focus in building what really
+matters: **your software**.
 
 kubectl-safe acts as a simple, interactive wrapper around modifying kubectl commands to prevent common, high-impact mistakes. It's designed to be a final checkpoint before you make a change you might regret.
 
-## Features
+---
 
 - **Enforces Best Practices**: Requires the mandatory use of `--context` and `--namespace` flags, forcing you to be explicit about your target
 - **Context Validation**: Validates that the specified context exists in your kubeconfig to prevent typos and targeting non-existent clusters
@@ -14,9 +33,10 @@ kubectl-safe acts as a simple, interactive wrapper around modifying kubectl comm
 - **Transparent Pass-through**: Safe commands like `get`, `describe`, `logs` etc. are passed through without any checks
 - **Comprehensive Coverage**: Protects against 13 always-modifying commands, 4 commands with specific modifying subcommands, and 2 commands that are modifying only with certain flags (see [Commands Covered](#commands-covered) for complete details)
 
-## Installation
+- [On your machine](https://goreleaser.com/install/);
+- [On CI/CD systems](https://goreleaser.com/ci/).
 
-### Via Krew (Recommended)
+## Documentation
 
 Install using krew with the local plugin manifest:
 
@@ -30,51 +50,49 @@ Or if you have cloned the repository:
 kubectl krew install --manifest=safe.yaml
 ```
 
-### Manual Installation
+## Community
 
-1. Download the latest release from the [releases page](https://github.com/bjrooney/kubectl-safe/releases)
-2. Extract the binary and place it in your PATH
-3. Ensure the binary is named `kubectl-safe`
+You have questions, need support and or just want to talk about GoReleaser?
 
-### Build from Source
+Here are ways to get in touch with the GoReleaser community:
 
-```bash
-git clone https://github.com/bjrooney/kubectl-safe.git
-cd kubectl-safe
-make build
-# Binary will be available at bin/kubectl-safe
-```
+[![Join Discord](https://img.shields.io/badge/Join_our_Discord_server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/RGEBtg8vQ6)
+[![Follow Twitter](https://img.shields.io/badge/follow_on_twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://twitter.com/goreleaser)
+[![GitHub Discussions](https://img.shields.io/badge/GITHUB_DISCUSSION-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/goreleaser/goreleaser/discussions)
 
-## Usage
+You can find the links above and all others [here](https://goreleaser.com/links/).
 
 Replace your modifying kubectl commands with `kubectl safe`:
 
-```bash
-# Instead of: kubectl delete pod mypod
-kubectl safe delete pod mypod --context=prod --namespace=myapp
+This project adheres to the Contributor Covenant [code of conduct](https://github.com/goreleaser/.github/blob/main/CODE_OF_CONDUCT.md).
+By participating, you are expected to uphold this code.
+We appreciate your contribution.
+Please refer to our [contributing guidelines](CONTRIBUTING.md) for further information.
 
-# Instead of: kubectl apply -f deployment.yaml  
-kubectl safe apply -f deployment.yaml --context=staging --namespace=myapp
-```
+## Badges
 
-### Examples
+[![Release](https://img.shields.io/github/release/goreleaser/goreleaser.svg?style=for-the-badge)](https://github.com/goreleaser/goreleaser/releases/latest)
+[![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=for-the-badge)](/LICENSE.md)
+[![Build status](https://img.shields.io/github/actions/workflow/status/goreleaser/goreleaser/build.yml?style=for-the-badge&branch=main)](https://github.com/goreleaser/goreleaser/actions?workflow=build)
+[![Codecov branch](https://img.shields.io/codecov/c/github/goreleaser/goreleaser/main.svg?style=for-the-badge)](https://codecov.io/gh/goreleaser/goreleaser)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/goreleaser&style=for-the-badge)](https://artifacthub.io/packages/search?repo=goreleaser)
+[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=for-the-badge)](http://godoc.org/github.com/goreleaser/goreleaser)
+[![Powered By: GoReleaser](https://img.shields.io/badge/powered%20by-goreleaser-green.svg?style=for-the-badge)](https://github.com/goreleaser)
+[![Backers on Open Collective](https://opencollective.com/goreleaser/backers/badge.svg?style=for-the-badge)](https://opencollective.com/goreleaser/backers/)
+[![Sponsors on Open Collective](https://opencollective.com/goreleaser/sponsors/badge.svg?style=for-the-badge)](https://opencollective.com/goreleaser/sponsors/)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg?style=for-the-badge)](https://conventionalcommits.org)
+[![CII Best Practices](https://img.shields.io/cii/summary/5420?label=openssf%20best%20practices&style=for-the-badge)](https://bestpractices.coreinfrastructure.org/projects/5420)
+[![GoReportCard](https://goreportcard.com/badge/github.com/goreleaser/goreleaser?style=for-the-badge)](https://goreportcard.com/report/github.com/goreleaser/goreleaser)
 
-```bash
-# This will prompt for confirmation and show target details
-kubectl safe delete deployment myapp --context=production --namespace=default
+## GitHub Sponsors
 
 # This will fail - missing required flags
 kubectl safe delete pod mypod
 # Error: modifying command requires explicit --context and --namespace flag(s)
 
-# This will fail - invalid context
-kubectl safe delete pod mypod --context=invalid-cluster --namespace=default
-# Error: context 'invalid-cluster' not found in kubeconfig. Available contexts: production, staging, development
+## OpenCollective
 
-# Safe commands pass through without checks
-kubectl safe get pods
-kubectl safe describe deployment myapp
-```
+### Sponsors
 
 ## Commands Covered
 
@@ -149,17 +167,14 @@ When using commands with mixed subcommands, these specific subcommands are safe:
 | `rollout` | `status`, `history` | `kubectl safe rollout status deployment/myapp` |
 | `set` | Any subcommand other than the modifying ones | Safe unless using `env`, `image`, `resources`, `selector`, `subject`, or `serviceaccount` |
 
-## Safety Features
+Love our work and community? [Become a backer](https://opencollective.com/goreleaser).
 
 When executing a modifying command, kubectl-safe will:
 
-1. **Validate Required Flags**: Ensure both `--context` and `--namespace` are provided
-2. **Validate Context Existence**: Verify the specified context exists in your kubeconfig
-3. **Show Target Information**: Display the target cluster context and namespace
-4. **Request Confirmation**: Ask for explicit confirmation before proceeding
-5. **Execute Safely**: Only proceed if the user confirms with "yes" or "y"
+### Contributors
 
-Example safety prompt:
+This project exists thanks to all the people who contribute.
+[Contribution guide](CONTRIBUTING.md).
 
 ```
 ⚠️  MODIFYING COMMAND DETECTED ⚠️
