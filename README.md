@@ -18,16 +18,10 @@ kubectl-safe acts as a simple, interactive wrapper around modifying kubectl comm
 
 ### Via Krew (Recommended)
 
-Install using krew with the local plugin manifest:
-
 ```bash
-kubectl krew install --manifest=https://raw.githubusercontent.com/bjrooney/kubectl-safe/main/safe.yaml
-```
-
-Or if you have cloned the repository:
-
-```bash
-kubectl krew install --manifest=safe.yaml
+kubectl krew index add bjrooney https://github.com/bjrooney/kubectl-safe.git
+kubectl krew install bjrooney/safe
+kubectl krew upgrade
 ```
 
 ### Manual Installation
